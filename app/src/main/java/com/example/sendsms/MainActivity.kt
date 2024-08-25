@@ -7,23 +7,33 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.telephony.SmsManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.example.sendsms.screens.LoginScreen
+import com.example.sendsms.screens.RegistrationScreen
+import com.example.sendsms.screens.ProfileScreen // Import ProfileScreen
+import com.example.sendsms.screens.ActionsScreen
+import com.example.sendsms.screens.SettingsScreen
+import com.example.sendsms.ui.components.BottomNavigation
 import com.example.sendsms.ui.theme.SendSMSTheme
-import androidx.compose.ui.platform.LocalContext
 import android.util.Log
+import com.example.sendsms.screens.SMSScreen
 
 class MainActivity : ComponentActivity() {
-    private val smsPermissionRequest = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) {
+    private val smsPermissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+        if (permissions[Manifest.permission.SEND_SMS] == true && permissions[Manifest.permission.RECEIVE_SMS] == true) {
             Log.d("MainActivity", "Permissions GRANTED")
         } else {
             Log.d("MainActivity", "Permissions DENIED")
@@ -44,14 +54,22 @@ class MainActivity : ComponentActivity() {
     private val _receivedMessage = mutableStateOf("")
     val receivedMessage: State<String> get() = _receivedMessage
 
+    // State to track login status
+    private var isLoggedIn by mutableStateOf(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         // Check and request SMS permissions
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
-            smsPermissionRequest.launch(Manifest.permission.SEND_SMS)
-            smsPermissionRequest.launch(Manifest.permission.RECEIVE_SMS)
+        val permissionsToRequest = mutableListOf<String>()
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.SEND_SMS)
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.RECEIVE_SMS)
+        }
+        if (permissionsToRequest.isNotEmpty()) {
+            smsPermissionRequest.launch(permissionsToRequest.toTypedArray())
         }
 
         // Register the BroadcastReceiver to listen for local broadcasts
@@ -61,11 +79,55 @@ class MainActivity : ComponentActivity() {
         // Set the content of the activity
         setContent {
             SendSMSTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    SMSApp(
-                        modifier = Modifier.padding(innerPadding),
-                        receivedMessage = receivedMessage.value
-                    )
+                val navController = rememberNavController()
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    bottomBar = {
+                        if (isLoggedIn) {
+                            BottomNavigation(navController)
+                        }
+                    }
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = if (isLoggedIn) "profile" else "login", // Update the start destination
+                        Modifier.padding(innerPadding)
+                    ) {
+                        composable("login") {
+                            LoginScreen(
+                                navController = navController,
+                                onLogin = { username, password ->
+                                    // Add login logic here, e.g., validate user
+                                    isLoggedIn = true // Set login state to true
+                                    navController.navigate("profile") // Navigate to Profile screen after login
+                                }
+                            )
+                        }
+                        composable("register") {
+                            RegistrationScreen(
+                                onRegister = { username, password, locatorNumber ->
+                                    navController.navigateUp() // Navigate back to login screen
+                                }
+                            )
+                        }
+                        composable("profile") {
+                            ProfileScreen(
+                                navController = navController // Pass navController to ProfileScreen
+                            )
+                        }
+                        composable("actions") {
+                            ActionsScreen(navController)
+                        }
+                        composable("settings") {
+                            SettingsScreen(navController)
+                        }
+                        composable("sms") { // Add this route
+                            SMSScreen(
+                                navController = navController,
+                                receivedMessage = receivedMessage.value
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -74,59 +136,5 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(smsReceiver)
-    }
-}
-
-@Composable
-fun SMSApp(modifier: Modifier = Modifier, receivedMessage: String) {
-    var phoneNumber by remember { mutableStateOf("") }
-    var message by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("") }
-
-    Column(
-        modifier = modifier
-            .padding(16.dp)
-            .fillMaxSize(),
-        verticalArrangement = Arrangement.Center
-    ) {
-        TextField(
-            value = phoneNumber,
-            onValueChange = { phoneNumber = it },
-            label = { Text("Phone Number") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        TextField(
-            value = message,
-            onValueChange = { message = it },
-            label = { Text("Message") },
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 5
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = {
-                sendSMS(phoneNumber, message)
-                status = "SMS sent!"
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Send SMS")
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = status)
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = "Received SMS: $receivedMessage")
-    }
-}
-
-private fun sendSMS(phoneNumber: String, message: String) {
-    if (phoneNumber.isNotBlank() && message.isNotBlank()) {
-        try {
-            val smsManager = SmsManager.getDefault()
-            smsManager.sendTextMessage(phoneNumber, null, message, null, null)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
     }
 }
