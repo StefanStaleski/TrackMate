@@ -1,6 +1,11 @@
 package com.example.sendsms.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+
+val GrayToBlackGradient = Brush.verticalGradient(
+    colors = listOf(Color.Black, Color.Gray) // Gray to Black gradient
+)
 
 val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)

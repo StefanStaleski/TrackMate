@@ -17,18 +17,10 @@ fun BottomNavigation(navController: NavHostController) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // Background color change based on the selected route
-    val backgroundColor = when (currentRoute) {
-        "sms" -> Color(0xFFE3F2FD) // Light pink for SMS
-        "actions" -> Color(0xFFE3F2FD) // Light green for Actions
-        "settings" -> Color(0xFFE3F2FD) // Light blue for Settings
-        else -> Color.Gray
-    }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(backgroundColor)
+            .background(Color.Transparent) // Set background to transparent
             .padding(8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {

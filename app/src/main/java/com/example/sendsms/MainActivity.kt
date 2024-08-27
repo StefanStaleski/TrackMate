@@ -28,7 +28,10 @@ import com.example.sendsms.screens.ActionsScreen
 import com.example.sendsms.screens.SettingsScreen
 import com.example.sendsms.ui.components.BottomNavigation
 import com.example.sendsms.ui.theme.SendSMSTheme
+import com.example.sendsms.ui.theme.GrayToBlackGradient
 import android.util.Log
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import com.example.sendsms.screens.SMSScreen
 
 class MainActivity : ComponentActivity() {
@@ -88,44 +91,50 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { innerPadding ->
-                    NavHost(
-                        navController = navController,
-                        startDestination = if (isLoggedIn) "profile" else "login", // Update the start destination
-                        Modifier.padding(innerPadding)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(GrayToBlackGradient) // Apply the gradient background here
                     ) {
-                        composable("login") {
-                            LoginScreen(
-                                navController = navController,
-                                onLogin = { username, password ->
-                                    // Add login logic here, e.g., validate user
-                                    isLoggedIn = true // Set login state to true
-                                    navController.navigate("profile") // Navigate to Profile screen after login
-                                }
-                            )
-                        }
-                        composable("register") {
-                            RegistrationScreen(
-                                onRegister = { username, password, locatorNumber ->
-                                    navController.navigateUp() // Navigate back to login screen
-                                }
-                            )
-                        }
-                        composable("profile") {
-                            ProfileScreen(
-                                navController = navController // Pass navController to ProfileScreen
-                            )
-                        }
-                        composable("actions") {
-                            ActionsScreen(navController)
-                        }
-                        composable("settings") {
-                            SettingsScreen(navController)
-                        }
-                        composable("sms") { // Add this route
-                            SMSScreen(
-                                navController = navController,
-                                receivedMessage = receivedMessage.value
-                            )
+                        NavHost(
+                            navController = navController,
+                            startDestination = if (isLoggedIn) "profile" else "login",
+                            Modifier.padding(innerPadding)
+                        ) {
+                            composable("login") {
+                                LoginScreen(
+                                    navController = navController,
+                                    onLogin = { username, password ->
+                                        // Add login logic here, e.g., validate user
+                                        isLoggedIn = true // Set login state to true
+                                        navController.navigate("profile") // Navigate to Profile screen after login
+                                    }
+                                )
+                            }
+                            composable("register") {
+                                RegistrationScreen(
+//                                    onRegister = { username, password, locatorNumber ->
+//                                        navController.navigateUp() // Navigate back to login screen
+//                                    }
+                                )
+                            }
+                            composable("profile") {
+                                ProfileScreen(
+                                    navController = navController // Pass navController to ProfileScreen
+                                )
+                            }
+                            composable("actions") {
+                                ActionsScreen(navController)
+                            }
+                            composable("settings") {
+                                SettingsScreen(navController)
+                            }
+                            composable("sms") {
+                                SMSScreen(
+                                    navController = navController,
+                                    receivedMessage = receivedMessage.value
+                                )
+                            }
                         }
                     }
                 }
