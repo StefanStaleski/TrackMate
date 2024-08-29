@@ -1,8 +1,8 @@
 package com.example.sendsms.screens
 
+import android.app.Application
 import android.content.Context
 import android.util.Log
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -15,20 +15,25 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
-import com.example.sendsms.components.BottomNavigation
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.sendsms.components.AppButton
 import com.example.sendsms.components.EditProfileDialog
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sendsms.components.BaseTemplate
-import com.example.sendsms.ui.theme.GrayToBlackGradient
+import com.example.sendsms.viewmodel.UserViewModel
+import com.example.sendsms.viewmodel.UserViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
 @Composable
-fun ProfileScreen(navController: NavHostController) {
+fun ProfileScreen(
+    navController: NavHostController,
+    userViewModel: UserViewModel = viewModel(
+    factory = UserViewModelFactory(LocalContext.current.applicationContext as Application)
+),) {
 
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
@@ -61,9 +66,18 @@ fun ProfileScreen(navController: NavHostController) {
     val formattedLastCheck = sdf.format(calendar.time)
 
     // Handle save action
-    fun handleSave(newUserName: String, newGpsLocator: String) {
+    fun handleSave(newUsername: String, newGpsLocator: String) {
+        val currentUsername = sharedPreferences.getString("username", null) ?: return
+
+        userViewModel.updateUser(
+            username = currentUsername,
+            newUsername = newUsername,
+            newPassword = null, // Assuming password is not being changed here
+            newGpsLocatorNumber = newGpsLocator
+        )
+
         with(sharedPreferences.edit()) {
-            putString("username", newUserName)
+            putString("username", newUsername)
             putString("gpsLocatorNumber", newGpsLocator)
             apply() // or commit() if you prefer
         }

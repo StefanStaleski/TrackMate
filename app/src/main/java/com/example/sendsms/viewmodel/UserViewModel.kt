@@ -64,6 +64,26 @@ class UserViewModel(
         }
     }
 
+    fun updateUser(username: String, newUsername: String?, newPassword: String?, newGpsLocatorNumber: String?) {
+        viewModelScope.launch {
+            val user = userRepository.getUserByUsername(username)
+            if (user != null) {
+                val updatedUser = user.copy(
+                    username = newUsername ?: user.username,
+                    password = newPassword ?: user.password,
+                    gpsLocatorNumber = newGpsLocatorNumber ?: user.gpsLocatorNumber
+                )
+                userRepository.updateUser(updatedUser)
+
+                _user.value = updatedUser
+
+                Log.d("UserViewModel", "User successfully updated!")
+            } else {
+                Log.d("UserViewModel", "User not found for username: $username")
+            }
+        }
+    }
+
     fun getUserByUsername(username: String) {
         viewModelScope.launch {
             val user = userRepository.getUserByUsername(username)
