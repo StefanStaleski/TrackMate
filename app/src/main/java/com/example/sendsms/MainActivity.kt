@@ -113,9 +113,10 @@ class MainActivity : ComponentActivity() {
                             }
                             composable("register") {
                                 RegistrationScreen(
-//                                    onRegister = { username, password, locatorNumber ->
-//                                        navController.navigateUp() // Navigate back to login screen
-//                                    }
+                                    navController = navController,
+                                    onRegister = {
+//                                        isLoggedIn = true
+                                    }
                                 )
                             }
                             composable("profile") {

@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 class UserRepository(private val userDao: UserDao) {
 
-    fun getUserByUsername(username: String): Flow<User?> {
+    suspend fun getUserByUsername(username: String): User? {
         return userDao.getUserByUsername(username)
     }
 
