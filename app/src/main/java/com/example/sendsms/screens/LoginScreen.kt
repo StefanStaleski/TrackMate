@@ -1,7 +1,6 @@
 package com.example.sendsms.screens
 
 import android.app.Application
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -15,7 +14,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sendsms.viewmodel.UserViewModel
 import com.example.sendsms.viewmodel.UserViewModelFactory
-import com.example.sendsms.ui.theme.GrayToBlackGradient
 import kotlinx.coroutines.launch
 
 @Composable

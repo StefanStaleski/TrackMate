@@ -1,20 +1,25 @@
 package com.example.sendsms.screens
 
+import android.content.Context
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.background
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import com.example.sendsms.components.ActionButton
 import com.example.sendsms.components.BaseTemplate
+import com.example.sendsms.utils.sendSMS
 
 @Composable
 fun ActionsScreen(navController: NavHostController) {
+
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+    val gpsLocatorNumber = sharedPreferences.getString("gpsLocatorNumber", "") ?: ""
+
     BaseTemplate(navController = navController) {
         Column(
             modifier = Modifier
@@ -46,13 +51,17 @@ fun ActionsScreen(navController: NavHostController) {
                 ) {
                     ActionButton(
                         text = "Get Location",
-                        onClick = { /* Handle Get Location */ },
+                        onClick = {
+                            sendSMS(gpsLocatorNumber, "777")
+                        },
                         modifier = Modifier.weight(1f) // Take up equal space
                     )
 
                     ActionButton(
                         text = "Call",
-                        onClick = { /* Handle Call */ },
+                        onClick = {
+                            sendSMS(gpsLocatorNumber, "CALL!")
+                        },
                         modifier = Modifier.weight(1f) // Take up equal space
                     )
                 }
@@ -62,13 +71,17 @@ fun ActionsScreen(navController: NavHostController) {
                 ) {
                     ActionButton(
                         text = "Delete Memory",
-                        onClick = { /* Handle Delete Memory */ },
+                        onClick = {
+                            sendSMS(gpsLocatorNumber, "DELETE MEMORY")
+                        },
                         modifier = Modifier.weight(1f) // Take up equal space
                     )
 
                     ActionButton(
                         text = "Restart",
-                        onClick = { /* Handle Restart */ },
+                        onClick = {
+                            sendSMS(gpsLocatorNumber, "RESTART!")
+                        },
                         modifier = Modifier.weight(1f) // Take up equal space
                     )
                 }
