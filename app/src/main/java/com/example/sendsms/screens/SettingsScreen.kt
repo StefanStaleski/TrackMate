@@ -6,16 +6,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import com.example.sendsms.components.BaseTemplate
 
 @Composable
 fun SettingsScreen(navController: NavHostController) {
-    Column(
-        modifier = Modifier
-            .padding(16.dp)
-            .fillMaxSize(),
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(text = "Settings Screen", style = MaterialTheme.typography.headlineLarge)
-        // Add more content here
+    BaseTemplate(navController = navController) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxSize(),
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(text = "Settings Screen", style = MaterialTheme.typography.headlineLarge)
+        }
     }
 }

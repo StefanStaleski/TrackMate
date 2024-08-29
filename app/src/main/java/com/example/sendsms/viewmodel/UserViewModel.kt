@@ -7,14 +7,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.sendsms.database.entity.User
 import com.example.sendsms.database.repository.UserRepository
-import com.example.sendsms.utils.UserPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class UserViewModel(
     private val userRepository: UserRepository,
-    private val userPreferences: UserPreferences? = null,
     application: Application
 ) : ViewModel() {
 
