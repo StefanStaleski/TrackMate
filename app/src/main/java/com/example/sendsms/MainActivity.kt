@@ -1,6 +1,7 @@
 package com.example.sendsms
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -15,33 +16,32 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.sendsms.screens.LoginScreen
 import com.example.sendsms.screens.RegistrationScreen
-import com.example.sendsms.screens.ProfileScreen // Import ProfileScreen
+import com.example.sendsms.screens.ProfileScreen
 import com.example.sendsms.screens.ActionsScreen
 import com.example.sendsms.screens.SettingsScreen
-import com.example.sendsms.ui.components.BottomNavigation
 import com.example.sendsms.ui.theme.SendSMSTheme
 import com.example.sendsms.ui.theme.GrayToBlackGradient
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.platform.LocalContext
 import com.example.sendsms.screens.SMSScreen
 
 class MainActivity : ComponentActivity() {
-    private val smsPermissionRequest = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
-        if (permissions[Manifest.permission.SEND_SMS] == true && permissions[Manifest.permission.RECEIVE_SMS] == true) {
-            Log.d("MainActivity", "Permissions GRANTED")
-        } else {
-            Log.d("MainActivity", "Permissions DENIED")
+    private val smsPermissionRequest =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+            if (permissions[Manifest.permission.SEND_SMS] == true && permissions[Manifest.permission.RECEIVE_SMS] == true) {
+                Log.d("MainActivity", "Permissions GRANTED")
+            } else {
+                Log.d("MainActivity", "Permissions DENIED")
+            }
         }
-    }
 
     private val smsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -55,87 +55,85 @@ class MainActivity : ComponentActivity() {
     }
 
     private val _receivedMessage = mutableStateOf("")
-    val receivedMessage: State<String> get() = _receivedMessage
+    private val receivedMessage: State<String> get() = _receivedMessage
 
-    // State to track login status
-    private var isLoggedIn by mutableStateOf(false)
-
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Check and request SMS permissions
         val permissionsToRequest = mutableListOf<String>()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.SEND_SMS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             permissionsToRequest.add(Manifest.permission.SEND_SMS)
         }
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) != PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECEIVE_SMS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
             permissionsToRequest.add(Manifest.permission.RECEIVE_SMS)
         }
         if (permissionsToRequest.isNotEmpty()) {
             smsPermissionRequest.launch(permissionsToRequest.toTypedArray())
         }
 
-        // Register the BroadcastReceiver to listen for local broadcasts
         val intentFilter = IntentFilter("com.example.sendsms.SMS_RECEIVED")
         registerReceiver(smsReceiver, intentFilter)
 
-        // Set the content of the activity
         setContent {
             SendSMSTheme {
                 val navController = rememberNavController()
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    bottomBar = {
-                        if (isLoggedIn) {
-                            BottomNavigation(navController)
-                        }
-                    }
-                ) { innerPadding ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(GrayToBlackGradient) // Apply the gradient background here
+
+                val context = LocalContext.current
+                val sharedPreferences =
+                    context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+                val isLoggedIn = sharedPreferences.getBoolean("isLoggedIn", false)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(GrayToBlackGradient)
+                ) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = if (isLoggedIn) "profile" else "login",
                     ) {
-                        NavHost(
-                            navController = navController,
-                            startDestination = if (isLoggedIn) "profile" else "login",
-                            Modifier.padding(innerPadding)
-                        ) {
-                            composable("login") {
-                                LoginScreen(
-                                    navController = navController,
-                                    onLogin = { username, password ->
-                                        // Add login logic here, e.g., validate user
-                                        isLoggedIn = true // Set login state to true
-                                        navController.navigate("profile") // Navigate to Profile screen after login
+                        composable("login") {
+                            LoginScreen(
+                                navController = navController,
+                                onLogin = {
+                                    navController.navigate("profile") {
+                                        popUpTo("login") { inclusive = true }
                                     }
-                                )
-                            }
-                            composable("register") {
-                                RegistrationScreen(
-                                    navController = navController,
-                                    onRegister = {
-//                                        isLoggedIn = true
-                                    }
-                                )
-                            }
-                            composable("profile") {
-                                ProfileScreen(
-                                    navController = navController // Pass navController to ProfileScreen
-                                )
-                            }
-                            composable("actions") {
-                                ActionsScreen(navController)
-                            }
-                            composable("settings") {
-                                SettingsScreen(navController)
-                            }
-                            composable("sms") {
-                                SMSScreen(
-                                    navController = navController,
-                                    receivedMessage = receivedMessage.value
-                                )
-                            }
+                                }
+                            )
+                        }
+                        composable("register") {
+                            RegistrationScreen(
+                                navController = navController,
+                                onRegister = {
+                                }
+                            )
+                        }
+                        composable("profile") {
+                            ProfileScreen(
+                                navController = navController
+                            )
+                        }
+                        composable("actions") {
+                            ActionsScreen(navController)
+                        }
+                        composable("settings") {
+                            SettingsScreen(navController)
+                        }
+                        composable("sms") {
+                            SMSScreen(
+                                navController = navController,
+                                receivedMessage = receivedMessage.value
+                            )
                         }
                     }
                 }

@@ -1,6 +1,7 @@
 package com.example.sendsms.screens
 
 import android.app.Application
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,6 +15,7 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sendsms.viewmodel.UserViewModel
 import com.example.sendsms.viewmodel.UserViewModelFactory
+import com.example.sendsms.ui.theme.GrayToBlackGradient
 import kotlinx.coroutines.launch
 
 @Composable
@@ -22,7 +24,7 @@ fun LoginScreen(
     userViewModel: UserViewModel = viewModel(
         factory = UserViewModelFactory(LocalContext.current.applicationContext as Application)
     ),
-    onLogin: (String, String) -> Unit
+    onLogin: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -63,6 +65,7 @@ fun LoginScreen(
 
             userViewModel.resetLoginStatus()
         } else if (loginStatus == "Login successful") {
+            onLogin()
             navController.navigate("profile") {
                 popUpTo("login") { inclusive = true }
             }
@@ -71,8 +74,8 @@ fun LoginScreen(
 
     Column(
         modifier = Modifier
-            .padding(16.dp)
-            .fillMaxSize(),
+            .fillMaxSize()
+            .padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
         TextField(

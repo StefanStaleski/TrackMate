@@ -1,5 +1,7 @@
 package com.example.sendsms.screens
 
+import android.content.Context
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,24 +11,42 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.Alignment
+import com.example.sendsms.components.BottomNavigation
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import com.example.sendsms.components.AppButton
 import com.example.sendsms.components.EditProfileDialog
+import androidx.compose.ui.platform.LocalContext
+import com.example.sendsms.components.BaseTemplate
+import com.example.sendsms.ui.theme.GrayToBlackGradient
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
 @Composable
 fun ProfileScreen(navController: NavHostController) {
+
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+
     // Example user data
-    var userName by remember { mutableStateOf("John Doe") }
-    var gpsLocatorNumber by remember { mutableStateOf("1234567890") }
+    val userName by remember {
+        mutableStateOf(
+            sharedPreferences.getString("username", "N/A") ?: "N/A"
+        )
+    }
+    val gpsLocatorNumber by remember {
+        mutableStateOf(
+            sharedPreferences.getString(
+                "gpsLocatorNumber",
+                "N/A"
+            ) ?: "N/A"
+        )
+    }
     val currentBatteryPercentage = "85%"
 
     // Dialog state
@@ -42,167 +62,176 @@ fun ProfileScreen(navController: NavHostController) {
 
     // Handle save action
     fun handleSave(newUserName: String, newGpsLocator: String) {
-        userName = newUserName
-        gpsLocatorNumber = newGpsLocator
+        with(sharedPreferences.edit()) {
+            putString("username", newUserName)
+            putString("gpsLocatorNumber", newGpsLocator)
+            apply() // or commit() if you prefer
+        }
     }
 
-    // Content of the Profile Screen
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp), // Padding around the entire column
-        verticalArrangement = Arrangement.Center, // Center content vertically
-        horizontalAlignment = Alignment.CenterHorizontally // Center content horizontally
-    ) {
-        // User Name
-        Card(
+    LaunchedEffect(sharedPreferences) {
+        Log.d("ProfileScreen", "Username: $userName")
+        Log.d("ProfileScreen", "GPS Locator Number: $gpsLocatorNumber")
+    }
+    BaseTemplate(navController = navController) {
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
-            elevation = CardDefaults.elevatedCardElevation(4.dp)
+                .fillMaxSize()
+                .padding(16.dp), // Padding around the entire column
+            verticalArrangement = Arrangement.Center, // Center content vertically
+            horizontalAlignment = Alignment.CenterHorizontally // Center content horizontally
         ) {
-            Row(
+            // User Name
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(bottom = 8.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
+                elevation = CardDefaults.elevatedCardElevation(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Username Icon",
-                    tint = Color.White, // Icon color
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = "Username: $userName",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
-                    fontSize = 16.sp
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Username Icon",
+                        tint = Color.White, // Icon color
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(
+                        text = "Username: $userName",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
+                        fontSize = 16.sp
+                    )
+                }
             }
-        }
 
-        // GPS Locator Number
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
-            elevation = CardDefaults.elevatedCardElevation(4.dp)
-        ) {
-            Row(
+            // GPS Locator Number
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(bottom = 8.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
+                elevation = CardDefaults.elevatedCardElevation(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = "GPS Icon",
-                    tint = Color.White, // Icon color
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = "GPS Locator Number: $gpsLocatorNumber",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
-                    fontSize = 16.sp
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.LocationOn,
+                        contentDescription = "GPS Icon",
+                        tint = Color.White, // Icon color
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(
+                        text = "GPS Locator Number: $gpsLocatorNumber",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
+                        fontSize = 16.sp
+                    )
+                }
             }
-        }
 
-        // Current Battery Percentage
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
-            elevation = CardDefaults.elevatedCardElevation(4.dp)
-        ) {
-            Row(
+            // Current Battery Percentage
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(bottom = 8.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
+                elevation = CardDefaults.elevatedCardElevation(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.BatteryFull,
-                    contentDescription = "Battery Icon",
-                    tint = Color.White, // Icon color
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = "Current Battery Percentage: $currentBatteryPercentage",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
-                    fontSize = 16.sp
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BatteryFull,
+                        contentDescription = "Battery Icon",
+                        tint = Color.White, // Icon color
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(
+                        text = "Current Battery Percentage: $currentBatteryPercentage",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
+                        fontSize = 16.sp
+                    )
+                }
             }
-        }
 
-        // Last Battery Check
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
-            elevation = CardDefaults.elevatedCardElevation(4.dp)
-        ) {
-            Row(
+            // Last Battery Check
+            Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
+                elevation = CardDefaults.elevatedCardElevation(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.AccessTime,
-                    contentDescription = "Time Icon",
-                    tint = Color.White, // Icon color
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text(
-                    text = "Last Battery Check: $formattedLastCheck",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
-                    fontSize = 16.sp
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = "Time Icon",
+                        tint = Color.White, // Icon color
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text(
+                        text = "Last Battery Check: $formattedLastCheck",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
+                        fontSize = 16.sp
+                    )
+                }
             }
+
+            // Edit Profile Button
+            AppButton(
+                text = "Edit Profile",
+                onClick = { showDialog = true },
+                backgroundColor = Color.Blue, // Button background color
+                contentColor = Color.White, // Button text color
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            )
+
+            // Navigate to SMS Screen Button
+            AppButton(
+                text = "Send SMS",
+                onClick = { navController.navigate("sms") }, // Navigate to the SMSScreen
+                backgroundColor = Color.Blue, // Button background color
+                contentColor = Color.White, // Button text color
+                modifier = Modifier
+                    .fillMaxWidth()
+            )
         }
 
-        // Edit Profile Button
-        AppButton(
-            text = "Edit Profile",
-            onClick = { showDialog = true },
-            backgroundColor = Color.Blue, // Button background color
-            contentColor = Color.White, // Button text color
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp)
-        )
-
-        // Navigate to SMS Screen Button
-        AppButton(
-            text = "Send SMS",
-            onClick = { navController.navigate("sms") }, // Navigate to the SMSScreen
-            backgroundColor = Color.Blue, // Button background color
-            contentColor = Color.White, // Button text color
-            modifier = Modifier
-                .fillMaxWidth()
+        // EditProfileDialog
+        EditProfileDialog(
+            showDialog = showDialog,
+            onDismiss = { showDialog = false },
+            onSave = { newUserName, newGpsLocator ->
+                handleSave(newUserName, newGpsLocator)
+            },
+            currentUserName = userName,
+            currentGpsLocator = gpsLocatorNumber
         )
     }
-
-    // EditProfileDialog
-    EditProfileDialog(
-        showDialog = showDialog,
-        onDismiss = { showDialog = false },
-        onSave = { newUserName, newGpsLocator ->
-            handleSave(newUserName, newGpsLocator)
-        },
-        currentUserName = userName,
-        currentGpsLocator = gpsLocatorNumber
-    )
 }
+
 
 @Preview(showBackground = true)
 @Composable

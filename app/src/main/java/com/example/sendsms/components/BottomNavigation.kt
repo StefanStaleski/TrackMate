@@ -1,4 +1,4 @@
-package com.example.sendsms.ui.components
+package com.example.sendsms.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*

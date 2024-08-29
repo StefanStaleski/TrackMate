@@ -9,7 +9,7 @@ import com.example.sendsms.utils.UserPreferences
 
 class UserViewModelFactory(
     private val application: Application,
-    private val usePreferences: Boolean = false
+    private val usePreferences: Boolean = false,
 ) : ViewModelProvider.Factory {
 
     private val userRepository: UserRepository = UserRepository(
@@ -22,7 +22,7 @@ class UserViewModelFactory(
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(UserViewModel::class.java)) {
-            return UserViewModel(userRepository) as T
+            return UserViewModel(userRepository, userPreferences, application) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

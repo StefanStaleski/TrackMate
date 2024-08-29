@@ -13,6 +13,7 @@ class UserPreferences(context: Context) {
         private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"
         private const val KEY_GPS_LOCATOR = "gps_locator_number"
+        private const val KEY_IS_LOGGED_IN = "is_logged_in"
     }
 
     var username: String?
@@ -26,4 +27,8 @@ class UserPreferences(context: Context) {
     var gpsLocatorNumber: String?
         get() = sharedPreferences.getString(KEY_GPS_LOCATOR, null)
         set(value) = sharedPreferences.edit().putString(KEY_GPS_LOCATOR, value).apply()
+
+    var isLoggedIn: Boolean
+        get() = sharedPreferences.getBoolean(KEY_IS_LOGGED_IN, false)
+        set(value) = sharedPreferences.edit().putBoolean(KEY_IS_LOGGED_IN, value).apply()
 }
