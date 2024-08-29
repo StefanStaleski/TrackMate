@@ -20,6 +20,9 @@ class UserViewModel(
     private val _registrationStatus = MutableStateFlow<String?>(null)
     val registrationStatus: StateFlow<String?> = _registrationStatus
 
+    private val _loginStatus = MutableStateFlow<String?>(null)
+    val loginStatus: StateFlow<String?> = _loginStatus
+
     suspend fun registerUser(username: String, password: String, gpsLocatorNumber: String) {
         val existingUser = userRepository.getUserByUsername(username)
         if (existingUser == null) {
@@ -34,6 +37,17 @@ class UserViewModel(
 
     }
 
+    fun login(username: String, password: String) {
+        viewModelScope.launch {
+            val user = userRepository.getUserByUsername(username)
+            if (user != null && user.password == password) {
+                _loginStatus.value = "Login successful"
+            } else {
+                _loginStatus.value = "Invalid username or password"
+            }
+        }
+    }
+
     fun getUserByUsername(username: String) {
         viewModelScope.launch {
             val user = userRepository.getUserByUsername(username)
@@ -43,5 +57,9 @@ class UserViewModel(
 
     fun resetRegistrationStatus() {
         _registrationStatus.value = null
+    }
+
+    fun resetLoginStatus() {
+        _loginStatus.value = null
     }
 }

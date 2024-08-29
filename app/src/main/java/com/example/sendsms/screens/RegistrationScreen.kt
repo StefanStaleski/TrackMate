@@ -1,6 +1,7 @@
 package com.example.sendsms.screens
 
 import android.app.Application
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -45,6 +46,7 @@ fun RegistrationScreen(
                 false
             }
             locatorNumber.length < 9 -> {
+                Log.d("RegistrationScreen", "LocatorNumber Length: ${locatorNumber.length}, locator number: $locatorNumber")
                 errorMessage = "GPS Locator Number must be at least 9 digits long."
                 false
             }
@@ -109,7 +111,8 @@ fun RegistrationScreen(
             Spacer(modifier = Modifier.height(16.dp))
             TextField(
                 value = locatorNumber,
-                onValueChange = { locatorNumber = it },
+                onValueChange = { newLocatorNumber ->
+                    locatorNumber = newLocatorNumber.filter { it.isDigit() } },
                 label = { Text("GPS Locator Number") },
                 modifier = Modifier.fillMaxWidth()
             )
