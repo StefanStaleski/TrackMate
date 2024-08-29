@@ -22,7 +22,7 @@ import com.example.sendsms.screens.LoginScreen
 import com.example.sendsms.screens.RegistrationScreen
 import com.example.sendsms.screens.ProfileScreen
 import com.example.sendsms.screens.ActionsScreen
-import com.example.sendsms.screens.SettingsScreen
+import com.example.sendsms.screens.GoogleMapsScreen
 import com.example.sendsms.ui.theme.SendSMSTheme
 import com.example.sendsms.ui.theme.GrayToBlackGradient
 import android.util.Log
@@ -125,7 +125,7 @@ class MainActivity : ComponentActivity() {
                             ActionsScreen(navController)
                         }
                         composable("settings") {
-                            SettingsScreen(navController)
+                            GoogleMapsScreen(navController)
                         }
                         composable("sms") {
                             SMSScreen(
