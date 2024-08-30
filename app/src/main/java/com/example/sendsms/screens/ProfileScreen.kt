@@ -22,8 +22,8 @@ import com.example.sendsms.components.EditProfileDialog
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.sendsms.components.BaseTemplate
-import com.example.sendsms.viewmodel.UserViewModel
-import com.example.sendsms.viewmodel.UserViewModelFactory
+import com.example.sendsms.viewmodel.ApplicationViewModel
+import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -31,9 +31,9 @@ import java.util.Locale
 @Composable
 fun ProfileScreen(
     navController: NavHostController,
-    userViewModel: UserViewModel = viewModel(
-    factory = UserViewModelFactory(LocalContext.current.applicationContext as Application)
-),) {
+    applicationViewModel: ApplicationViewModel = viewModel(
+    factory = ApplicationViewModelFactory(LocalContext.current.applicationContext as Application)
+)) {
 
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
@@ -69,7 +69,7 @@ fun ProfileScreen(
     fun handleSave(newUsername: String, newGpsLocator: String) {
         val currentUsername = sharedPreferences.getString("username", null) ?: return
 
-        userViewModel.updateUser(
+        applicationViewModel.updateUser(
             username = currentUsername,
             newUsername = newUsername,
             newPassword = null, // Assuming password is not being changed here

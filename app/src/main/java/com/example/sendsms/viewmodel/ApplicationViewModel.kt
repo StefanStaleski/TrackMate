@@ -5,14 +5,18 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.sendsms.database.entity.GPSData
 import com.example.sendsms.database.entity.User
+import com.example.sendsms.database.repository.GPSDataRepository
 import com.example.sendsms.database.repository.UserRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class UserViewModel(
+class ApplicationViewModel(
     private val userRepository: UserRepository,
+    private val gpsDataRepository: GPSDataRepository,
     application: Application
 ) : ViewModel() {
 
@@ -26,6 +30,9 @@ class UserViewModel(
 
     private val _loginStatus = MutableStateFlow<String?>(null)
     val loginStatus: StateFlow<String?> = _loginStatus
+
+    private val _recentGPSData = MutableStateFlow<List<GPSData>>(emptyList())
+    val recentGPSData: StateFlow<List<GPSData>> = _recentGPSData
 
     suspend fun registerUser(username: String, password: String, gpsLocatorNumber: String) {
         val existingUser = userRepository.getUserByUsername(username)
@@ -50,6 +57,7 @@ class UserViewModel(
                 val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
                 val editor = sharedPreferences.edit()
 
+                editor.putInt("userId", user.id)
                 editor.putString("username", username)
                 editor.putString("password", password)
                 editor.putString("gpsLocatorNumber", user.gpsLocatorNumber)
@@ -97,5 +105,21 @@ class UserViewModel(
 
     fun resetLoginStatus() {
         _loginStatus.value = null
+    }
+
+    fun insertGPSData(gpsData: GPSData) {
+        viewModelScope.launch {
+            gpsDataRepository.insertGPSData(gpsData)
+            Log.d("ApplicationViewModel", "Successful GPS data save: $gpsData")
+        }
+    }
+
+     fun getRecentGPSDataForUser(userId: Int) {
+         viewModelScope.launch {
+             gpsDataRepository.getRecentGPSDataForUser(userId).collect { data ->
+                 _recentGPSData.value = data
+                 println("ApplicationViewModel GPS Data: ${_recentGPSData.value}")
+             }
+         }
     }
 }

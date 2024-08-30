@@ -12,21 +12,21 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.sendsms.viewmodel.UserViewModel
-import com.example.sendsms.viewmodel.UserViewModelFactory
+import com.example.sendsms.viewmodel.ApplicationViewModel
+import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
     navController: NavHostController,
-    userViewModel: UserViewModel = viewModel(
-        factory = UserViewModelFactory(LocalContext.current.applicationContext as Application)
+    applicationViewModel: ApplicationViewModel = viewModel(
+        factory = ApplicationViewModelFactory(LocalContext.current.applicationContext as Application)
     ),
     onLogin: () -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    val loginStatus by userViewModel.loginStatus.collectAsState()
+    val loginStatus by applicationViewModel.loginStatus.collectAsState()
     var errorMessage by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
 
@@ -61,7 +61,7 @@ fun LoginScreen(
             kotlinx.coroutines.delay(2000)
             errorMessage = ""
 
-            userViewModel.resetLoginStatus()
+            applicationViewModel.resetLoginStatus()
         } else if (loginStatus == "Login successful") {
             onLogin()
             navController.navigate("profile") {
@@ -106,7 +106,7 @@ fun LoginScreen(
             onClick = {
                 if (validateInput()) {
                     coroutineScope.launch {
-                        userViewModel.login(username, password)
+                        applicationViewModel.login(username, password)
                     }
                 }
             },

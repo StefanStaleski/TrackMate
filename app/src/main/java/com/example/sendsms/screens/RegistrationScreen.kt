@@ -12,16 +12,16 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.example.sendsms.viewmodel.UserViewModel
-import com.example.sendsms.viewmodel.UserViewModelFactory
+import com.example.sendsms.viewmodel.ApplicationViewModel
+import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import com.example.sendsms.ui.theme.GrayToBlackGradient
 import kotlinx.coroutines.launch
 
 @Composable
 fun RegistrationScreen(
     navController: NavHostController,
-    userViewModel: UserViewModel = viewModel(
-        factory = UserViewModelFactory(LocalContext.current.applicationContext as Application)
+    applicationViewModel: ApplicationViewModel = viewModel(
+        factory = ApplicationViewModelFactory(LocalContext.current.applicationContext as Application)
     ),
     onRegister: () -> Unit
 ) {
@@ -32,7 +32,7 @@ fun RegistrationScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var isRegistrationSuccess by remember { mutableStateOf(false) }
 
-    val registrationStatus by userViewModel.registrationStatus.collectAsState()
+    val registrationStatus by applicationViewModel.registrationStatus.collectAsState()
     val coroutineScope = rememberCoroutineScope()
 
     fun validateInput(): Boolean {
@@ -77,7 +77,7 @@ fun RegistrationScreen(
                         popUpTo("register") { inclusive = true }
                     }
                 }
-                userViewModel.resetRegistrationStatus()
+                applicationViewModel.resetRegistrationStatus()
             }
         }
     }
@@ -129,7 +129,7 @@ fun RegistrationScreen(
                 onClick = {
                     if (validateInput()) {
                         coroutineScope.launch {
-                            userViewModel.registerUser(username, password, locatorNumber)
+                            applicationViewModel.registerUser(username, password, locatorNumber)
                         }
                     }
                 },
