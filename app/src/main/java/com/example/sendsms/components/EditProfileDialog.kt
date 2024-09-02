@@ -60,9 +60,9 @@ fun EditProfileDialog(
                         onValueChange = { gpsLocator = it },
                         label = { Text("GPS Locator Number") },
                         colors = TextFieldDefaults.textFieldColors(
-                            containerColor = Color(0xFF2C2C2C), // Slightly lighter gray background for the TextField
-                            focusedIndicatorColor = Color(0xFF4CAF50), // Green color for the focused indicator
-                            unfocusedIndicatorColor = Color(0xFFB0B0B0), // Lighter gray for unfocused indicator
+                            containerColor = Color(0xFF2C2C2C),
+                            focusedIndicatorColor = Color(0xFF4CAF50),
+                            unfocusedIndicatorColor = Color(0xFFB0B0B0),
                             cursorColor = Color.White,
                             focusedLabelColor = Color.White,
                             unfocusedLabelColor = Color(0xFFB0B0B0),

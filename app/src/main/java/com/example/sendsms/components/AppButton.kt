@@ -12,28 +12,31 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.RectangleShape
 
 @Composable
 fun AppButton(
+    modifier: Modifier = Modifier,
     text: String,
     onClick: (() -> Unit)? = null,
-    modifier: Modifier = Modifier,
-    backgroundColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f), // Lighter color
+    backgroundColor: Color = Color(0xFF4CAF50),
     contentColor: Color = Color.White,
     icon: ImageVector? = null,
-    shape: Shape = RectangleShape // Less border-radius
+    shape: Shape = RoundedCornerShape(12.dp),
+    enabled: Boolean = true
 ) {
     Button(
         onClick = { onClick?.invoke() },
         colors = ButtonDefaults.buttonColors(containerColor = backgroundColor, contentColor = contentColor),
         modifier = modifier
-            .padding(4.dp) // Padding around the button
+            .padding(8.dp) // Padding around the button
             .clip(shape)
-            .widthIn(max = 180.dp) // Adjusted maximum width for a narrower button
-            .heightIn(min = 36.dp), // Adjusted minimum height for a thinner button
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp) // Adjusted internal padding
+            .widthIn(max = 200.dp) // Adjusted maximum width for a narrower button
+            .heightIn(min = 48.dp), // Adjusted minimum height for a thinner button
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp), // Adjusted internal padding
+        enabled = enabled
     ) {
         Row(
             modifier = Modifier
@@ -47,12 +50,12 @@ fun AppButton(
                     icon,
                     contentDescription = null,
                     tint = contentColor,
-                    modifier = Modifier.size(20.dp).padding(end = 4.dp) // Icon size and padding
+                    modifier = Modifier.size(24.dp).padding(end = 8.dp) // Icon size and padding
                 )
             }
             Text(
                 text = text,
-                fontSize = 14.sp, // Font size
+                fontSize = 16.sp, // Font size
                 fontWeight = FontWeight.Bold,
                 color = contentColor
             )

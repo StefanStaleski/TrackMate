@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.example.sendsms.components.AppButton
@@ -12,6 +13,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.sendsms.components.AppTextField
 import com.example.sendsms.viewmodel.ApplicationViewModel
 import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import kotlinx.coroutines.launch
@@ -76,21 +78,22 @@ fun LoginScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.Center
     ) {
-        TextField(
+        Spacer(modifier = Modifier.height(5.5.dp))
+        AppTextField(
             value = username,
             onValueChange = { username = it },
             label = { Text("Username") },
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(),
         )
         Spacer(modifier = Modifier.height(16.dp))
-        TextField(
+        AppTextField(
             value = password,
             onValueChange = { password = it },
             label = { Text("Password") },
             modifier = Modifier
                 .fillMaxWidth(),
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = PasswordVisualTransformation(),
         )
         Spacer(modifier = Modifier.height(16.dp))
         if (errorMessage.isNotEmpty()) {
@@ -112,12 +115,15 @@ fun LoginScreen(
             },
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         TextButton(
             onClick = {
                 navController.navigate("register")
-            }
+            },
+            colors = ButtonDefaults.textButtonColors(
+                contentColor = Color(0xFFFF6F61),
+                disabledContentColor = Color.Gray
+            )
         ) {
             Text("Not registered? Register here")
         }

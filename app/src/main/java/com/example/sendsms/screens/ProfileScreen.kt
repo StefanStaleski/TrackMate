@@ -56,7 +56,10 @@ fun ProfileScreen(
 
     val batteryPercentage by remember {
         mutableStateOf(
-            sharedPreferences.getInt("batteryPercentage", 0).takeIf { it > 0 }?.toString() ?: "N/A"
+            sharedPreferences.getInt("batteryPercentage", 0)
+                .takeIf { it > 0 }
+                ?.let { "$it%" }
+                ?: "N/A"
         )
     }
 
@@ -227,7 +230,6 @@ fun ProfileScreen(
             AppButton(
                 text = "Edit Profile",
                 onClick = { showDialog = true },
-                backgroundColor = Color.Blue, // Button background color
                 contentColor = Color.White, // Button text color
                 modifier = Modifier
                     .fillMaxWidth()
@@ -235,14 +237,14 @@ fun ProfileScreen(
             )
 
             // Navigate to SMS Screen Button
-            AppButton(
-                text = "Send SMS",
-                onClick = { navController.navigate("sms") }, // Navigate to the SMSScreen
-                backgroundColor = Color.Blue, // Button background color
-                contentColor = Color.White, // Button text color
-                modifier = Modifier
-                    .fillMaxWidth()
-            )
+//            AppButton(
+//                text = "Send SMS",
+//                onClick = { navController.navigate("sms") }, // Navigate to the SMSScreen
+//                backgroundColor = Color.Blue, // Button background color
+//                contentColor = Color.White, // Button text color
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//            )
         }
 
         // EditProfileDialog

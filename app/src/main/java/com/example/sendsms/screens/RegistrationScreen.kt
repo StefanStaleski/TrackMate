@@ -12,6 +12,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.example.sendsms.components.AppButton
+import com.example.sendsms.components.AppTextField
 import com.example.sendsms.viewmodel.ApplicationViewModel
 import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import com.example.sendsms.ui.theme.GrayToBlackGradient
@@ -94,27 +96,27 @@ fun RegistrationScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.Center
         ) {
-            TextField(
+            AppTextField(
                 value = username,
                 onValueChange = { username = it },
                 label = { Text("Username") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(16.dp))
-            TextField(
+            AppTextField(
                 value = password,
                 onValueChange = { password = it },
                 label = { Text("Password") },
                 modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation()
+                visualTransformation = PasswordVisualTransformation(),
             )
             Spacer(modifier = Modifier.height(16.dp))
-            TextField(
+            AppTextField(
                 value = locatorNumber,
                 onValueChange = { newLocatorNumber ->
                     locatorNumber = newLocatorNumber.filter { it.isDigit() } },
                 label = { Text("GPS Locator Number") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(modifier = Modifier.height(16.dp))
             if (errorMessage.isNotEmpty()) {
@@ -125,7 +127,8 @@ fun RegistrationScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
-            Button(
+            AppButton(
+                text = "Register",
                 onClick = {
                     if (validateInput()) {
                         coroutineScope.launch {
@@ -135,9 +138,7 @@ fun RegistrationScreen(
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isRegistrationSuccess
-            ) {
-                Text("Register")
-            }
+            )
         }
     }
 }
