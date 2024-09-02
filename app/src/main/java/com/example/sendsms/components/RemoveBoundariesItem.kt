@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun RemoveMarkerItem(
+fun RemoveBoundariesItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -34,14 +34,13 @@ fun RemoveMarkerItem(
     ) {
         Icon(
             imageVector = Icons.Filled.Delete,
-            contentDescription = "Remove All Markers",
+            contentDescription = "Remove Boundaries",
             tint = iconColor,
-            modifier = Modifier
-                .size(24.dp)
+            modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Remove M",
+            text = "Remove B",
             style = MaterialTheme.typography.body1.copy(color = iconColor, fontSize = 12.sp)
         )
     }

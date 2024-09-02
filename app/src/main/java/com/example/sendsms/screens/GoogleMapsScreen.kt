@@ -14,12 +14,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.sendsms.viewmodel.ApplicationViewModel
 import com.example.sendsms.components.BaseTemplate
+import com.example.sendsms.components.RemoveBoundariesItem
 import com.example.sendsms.components.RemoveMarkerItem
 import com.example.sendsms.components.ToggleMarkersItem
 import com.example.sendsms.database.entity.AreaBoundaryData
@@ -291,6 +293,15 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                     onClick = { markersVisible = !markersVisible },
                     modifier = Modifier
                         .padding(end = 8.dp)
+                )
+
+                RemoveBoundariesItem(
+                    onClick = {
+                        if (userId != -1) {
+                            applicationViewModel.removeBoundariesForUser(userId)
+                        }
+                    },
+                    modifier = Modifier.padding(start = 8.dp)
                 )
 
                 RemoveMarkerItem(
