@@ -26,6 +26,7 @@ import com.example.sendsms.viewmodel.ApplicationViewModel
 import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 @Composable
@@ -52,18 +53,29 @@ fun ProfileScreen(
             ) ?: "N/A"
         )
     }
+
+    val batteryPercentage by remember {
+        mutableStateOf(
+            sharedPreferences.getInt("batteryPercentage", 0).takeIf { it > 0 }?.toString() ?: "N/A"
+        )
+    }
+
+    val lastBatteryCheckTimestamp by remember {
+        mutableStateOf(
+            sharedPreferences.getLong("lastBatteryCheck", 0L)
+        )
+    }
+
+    val formattedLastCheck = if (lastBatteryCheckTimestamp > 0) {
+        val sdf = SimpleDateFormat("MMM dd, yyyy, HH:mm", Locale.getDefault())
+        sdf.format(Date(lastBatteryCheckTimestamp))
+    } else {
+        "N/A"
+    }
+
     val currentBatteryPercentage = "85%"
 
-    // Dialog state
     var showDialog by remember { mutableStateOf(false) }
-
-    // Example last battery check time using Calendar
-    val calendar = Calendar.getInstance()
-    calendar.add(Calendar.HOUR_OF_DAY, -3) // Example data: 3 hours ago
-
-    // Format last battery check time
-    val sdf = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
-    val formattedLastCheck = sdf.format(calendar.time)
 
     // Handle save action
     fun handleSave(newUsername: String, newGpsLocator: String) {
@@ -175,7 +187,7 @@ fun ProfileScreen(
                         modifier = Modifier.padding(end = 8.dp)
                     )
                     Text(
-                        text = "Current Battery Percentage: $currentBatteryPercentage",
+                        text = "Current Battery Percentage: $batteryPercentage",
                         style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
                         fontSize = 16.sp
                     )

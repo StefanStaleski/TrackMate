@@ -13,4 +13,8 @@ class GPSDataRepository(private val gpsDataDao: GPSDataDao) {
     fun getRecentGPSDataForUser(userId: Int): Flow<List<GPSData>> {
         return gpsDataDao.getRecentGPSDataForUser(userId)
     }
+
+    suspend fun getLatestGPSDataForUser(userId: Int): GPSData? {
+        return gpsDataDao.getLatestGPSDataForUser(userId)
+    }
 }

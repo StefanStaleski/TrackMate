@@ -122,4 +122,21 @@ class ApplicationViewModel(
              }
          }
     }
+
+    fun getLatestGPSDataForUser() {
+        viewModelScope.launch {
+            val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+            val userId = sharedPreferences.getInt("userId", -1)
+
+            if (userId != -1) {
+                val latestGPSData = gpsDataRepository.getLatestGPSDataForUser(userId)
+                latestGPSData?.let {
+                    val editor = sharedPreferences.edit()
+                    editor.putInt("batteryPercentage", it.battery)
+                    editor.putLong("lastBatteryCheck", it.timestamp)
+                    editor.apply()
+                }
+            }
+        }
+    }
 }

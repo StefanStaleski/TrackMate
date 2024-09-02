@@ -13,4 +13,7 @@ interface GPSDataDao {
 
     @Query("SELECT * FROM gps_data WHERE user_id = :userId ORDER BY timestamp DESC LIMIT 10")
     fun getRecentGPSDataForUser(userId: Int): Flow<List<GPSData>>
+
+    @Query("SELECT * FROM gps_data WHERE user_id = :userId ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLatestGPSDataForUser(userId: Int): GPSData?
 }

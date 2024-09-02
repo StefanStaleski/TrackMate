@@ -1,5 +1,6 @@
 package com.example.sendsms.screens
 
+import android.app.Application
 import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -8,13 +9,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.sendsms.components.ActionButton
 import com.example.sendsms.components.BaseTemplate
 import com.example.sendsms.utils.sendSMS
+import com.example.sendsms.viewmodel.ApplicationViewModel
+import com.example.sendsms.viewmodel.ApplicationViewModelFactory
+
 
 @Composable
-fun ActionsScreen(navController: NavHostController) {
+fun ActionsScreen(navController: NavHostController,
+                  applicationViewModel: ApplicationViewModel = viewModel(
+                      factory = ApplicationViewModelFactory(LocalContext.current.applicationContext as Application)
+                  )
+) {
 
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
@@ -52,6 +61,7 @@ fun ActionsScreen(navController: NavHostController) {
                     ActionButton(
                         text = "Get Location",
                         onClick = {
+                            applicationViewModel.getLatestGPSDataForUser()
                             sendSMS(gpsLocatorNumber, "777")
                         },
                         modifier = Modifier.weight(1f) // Take up equal space
