@@ -16,4 +16,7 @@ interface GPSDataDao {
 
     @Query("SELECT * FROM gps_data WHERE user_id = :userId ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLatestGPSDataForUser(userId: Int): GPSData?
+
+    @Query("DELETE FROM gps_data WHERE user_id = :userId")
+    suspend fun removeAllGPSDataForUser(userId: Int)
 }

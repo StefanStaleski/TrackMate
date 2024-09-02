@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -18,6 +19,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.sendsms.viewmodel.ApplicationViewModel
 import com.example.sendsms.components.BaseTemplate
+import com.example.sendsms.components.RemoveMarkerItem
+import com.example.sendsms.components.ToggleMarkersItem
 import com.example.sendsms.database.entity.GPSData
 import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -39,8 +42,11 @@ import kotlin.random.Random
 fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: ApplicationViewModel = viewModel(
     factory = ApplicationViewModelFactory(LocalContext.current.applicationContext as Application)
 )) {
+    val defaultLocation = LatLng(41.9981, 21.4254)
+
     var locationPermissionGranted by remember { mutableStateOf(false) }
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
+    var markersVisible by remember { mutableStateOf(true) }
     val googleMap by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
     val recentGPSData by applicationViewModel.recentGPSData.collectAsState()
 
@@ -71,7 +77,7 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(
-            userLocation ?: LatLng(37.7749, -122.4194), // Default to San Francisco coordinates if location not available
+            userLocation ?: defaultLocation,
             10f
         )
     }
@@ -92,87 +98,108 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
     }
 
     BaseTemplate(navController = navController) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
-            // Google Map at the top
-            Box(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(550.dp)  // Adjust the height as needed
+                    .fillMaxSize()
             ) {
-                GoogleMap(
-                    modifier = Modifier.fillMaxSize(),
-                    cameraPositionState = cameraPositionState,
-                    uiSettings = mapUiSettings,
-                    onMapLoaded = {
-                        googleMap?.mapType = com.google.android.gms.maps.GoogleMap.MAP_TYPE_NORMAL
-                    },
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(550.dp)
                 ) {
-                    if (polylinePoints.size > 1) {
-                        Polyline(
-                            points = polylinePoints,
-                            color = MaterialTheme.colorScheme.primary,
-                            width = 5f
-                        )
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = cameraPositionState,
+                        uiSettings = mapUiSettings,
+                        onMapLoaded = {
+                            googleMap?.mapType = com.google.android.gms.maps.GoogleMap.MAP_TYPE_NORMAL
+                        },
+                    ) {
+                        if (polylinePoints.size > 1) {
+                            Polyline(
+                                points = polylinePoints,
+                                color = MaterialTheme.colorScheme.primary,
+                                width = 8f
+                            )
+                        }
+
+                        if (markersVisible) {
+                            recentGPSData.reversed().forEachIndexed { index, gpsData ->
+                                val position = LatLng(gpsData.latitude, gpsData.longitude)
+                                val markerState = rememberMarkerState(position = position)
+
+                                val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+                                val formattedDate = dateFormat.format(Date(gpsData.timestamp))
+
+                                Marker(
+                                    state = markerState,
+                                    title = "Location #${index + 1} on $formattedDate",
+                                    snippet = "Battery: ${gpsData.battery}%"
+                                )
+
+                                println("Placing marker at: $position")
+                            }
+                        }
                     }
+                }
 
-                    recentGPSData.reversed().forEachIndexed { index, gpsData ->
-                        val position = LatLng(gpsData.latitude, gpsData.longitude)
-                        val markerState = rememberMarkerState(position = position)
+                Spacer(modifier = Modifier.height(16.dp))
 
-                        val dateFormat = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
-                        val formattedDate = dateFormat.format(Date(gpsData.timestamp))
+                Button(onClick = {
+                    userLocation?.let { location ->
+                        val batteryPercentage = Random.nextInt(1, 101)
 
-                        Marker(
-                            state = markerState,
-                            title = "Location #${index + 1} on $formattedDate",
-                            snippet = "Battery: ${gpsData.battery}%"
-                        )
+                        if (userId != -1) {
+                            val gpsData = GPSData(
+                                userId = userId,
+                                latitude = location.latitude,
+                                longitude = location.longitude,
+                                battery = batteryPercentage,
+                                timestamp = System.currentTimeMillis()
+                            )
 
-                        println("Placing marker at: $position")
+                            applicationViewModel.insertGPSData(gpsData)
+                        }
                     }
+                }) {
+                    Text("Save Location Data")
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                ToggleMarkersItem(
+                    isMarkersVisible = markersVisible,
+                    onClick = { markersVisible = !markersVisible },
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                )
 
-            Button(onClick = {
-                userLocation?.let { location ->
-                    val batteryPercentage = Random.nextInt(1, 101)
-
-                    if (userId != -1) {
-                        val gpsData = GPSData(
-                            userId = userId,
-                            latitude = location.latitude,
-                            longitude = location.longitude,
-                            battery = batteryPercentage,
-                            timestamp = System.currentTimeMillis()
-                        )
-
-                        applicationViewModel.insertGPSData(gpsData)
-                    }
-                }
-            }) {
-                Text("Save Location Data")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            LaunchedEffect(recentGPSData) {
-                println("Recent GPS Data: $recentGPSData")
+                RemoveMarkerItem(
+                    onClick = {
+                        applicationViewModel.removeAllGPSDataForUser()
+                    },
+                    modifier = Modifier
+                        .padding(start = 8.dp)
+                )
             }
         }
     }
 }
 
-
 fun fetchUserLocation(context: Context, onLocationFetched: (LatLng) -> Unit) {
     val fusedLocationClient: FusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
 
-    // Check if the ACCESS_FINE_LOCATION permission is granted
     if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
         return
     }

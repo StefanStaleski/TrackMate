@@ -139,4 +139,17 @@ class ApplicationViewModel(
             }
         }
     }
+
+    fun removeAllGPSDataForUser() {
+        viewModelScope.launch {
+            val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+            val userId = sharedPreferences.getInt("userId", -1)
+
+            if (userId != -1) {
+                gpsDataRepository.removeAllGPSDataForUser(userId)
+                _recentGPSData.value = emptyList()
+                Log.d("ApplicationViewModel", "All GPS data deleted for userId: $userId")
+            }
+        }
+    }
 }

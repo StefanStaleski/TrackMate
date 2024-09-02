@@ -17,4 +17,8 @@ class GPSDataRepository(private val gpsDataDao: GPSDataDao) {
     suspend fun getLatestGPSDataForUser(userId: Int): GPSData? {
         return gpsDataDao.getLatestGPSDataForUser(userId)
     }
+
+    suspend fun removeAllGPSDataForUser(userId: Int) {
+        gpsDataDao.removeAllGPSDataForUser(userId)
+    }
 }
