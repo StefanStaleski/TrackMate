@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -21,6 +22,7 @@ import com.example.sendsms.viewmodel.ApplicationViewModel
 import com.example.sendsms.components.BaseTemplate
 import com.example.sendsms.components.RemoveMarkerItem
 import com.example.sendsms.components.ToggleMarkersItem
+import com.example.sendsms.database.entity.AreaBoundaryData
 import com.example.sendsms.database.entity.GPSData
 import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -33,6 +35,8 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberMarkerState
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.Polygon
+import com.google.maps.android.compose.Circle
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -43,16 +47,24 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
     factory = ApplicationViewModelFactory(LocalContext.current.applicationContext as Application)
 )) {
     val defaultLocation = LatLng(41.9981, 21.4254)
+    val context = LocalContext.current
+    val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+    val userId = sharedPreferences.getInt("userId", -1)
 
     var locationPermissionGranted by remember { mutableStateOf(false) }
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
     var markersVisible by remember { mutableStateOf(true) }
+    var boundaryPoints by remember { mutableStateOf<List<List<LatLng>>>(emptyList()) }
+    var boundaryPointsForDrawing by remember { mutableStateOf<List<LatLng>>(emptyList()) }
+    var boundaryVisible by remember { mutableStateOf(false) }
+    var showSaveCancelButtons by remember { mutableStateOf(false) }
+
+
     val googleMap by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
     val recentGPSData by applicationViewModel.recentGPSData.collectAsState()
+    val areaBoundaries by applicationViewModel.areaBoundaries.collectAsState()
 
-    val context = LocalContext.current
-    val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
-    val userId = sharedPreferences.getInt("userId", -1)
+
 
     val requestPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -72,7 +84,20 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
     LaunchedEffect(userId) {
         if (userId != -1) {
             applicationViewModel.getRecentGPSDataForUser(userId)
+            applicationViewModel.getBoundariesForUser(userId)
         }
+    }
+
+    LaunchedEffect(areaBoundaries) {
+        boundaryPoints = areaBoundaries.filter { it.userId == userId }.map { boundary ->
+            listOf(
+                LatLng(boundary.point1Lat, boundary.point1Long),
+                LatLng(boundary.point2Lat, boundary.point2Long),
+                LatLng(boundary.point3Lat, boundary.point3Long),
+                LatLng(boundary.point4Lat, boundary.point4Long)
+            )
+        }
+        boundaryVisible = boundaryPoints.isNotEmpty()
     }
 
     val cameraPositionState = rememberCameraPositionState {
@@ -119,13 +144,58 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                         onMapLoaded = {
                             googleMap?.mapType = com.google.android.gms.maps.GoogleMap.MAP_TYPE_NORMAL
                         },
+                        onMapClick = { latLng ->
+                            if (boundaryPointsForDrawing.size < 4) {
+                                boundaryPointsForDrawing = boundaryPointsForDrawing + latLng
+                                boundaryVisible = true
+                                showSaveCancelButtons = boundaryPointsForDrawing.size > 2
+                            }
+                        }
                     ) {
+                        boundaryPoints.forEach { points ->
+                            Polygon(
+                                points = points + if (points.size == 4) listOf(points.first()) else emptyList(),
+                                fillColor = Color(0x5500FF00), // Transparent green fill
+                                strokeColor = Color.Black, // Black stroke
+                                strokeWidth = 2f
+                            )
+                        }
+
                         if (polylinePoints.size > 1) {
                             Polyline(
                                 points = polylinePoints,
                                 color = MaterialTheme.colorScheme.primary,
                                 width = 8f
                             )
+                        }
+
+                        if (boundaryVisible && boundaryPointsForDrawing.size >= 3) {
+                            Polygon(
+                                points = boundaryPointsForDrawing + if (boundaryPointsForDrawing.size == 4) listOf(boundaryPointsForDrawing.first()) else emptyList(), // Close the polygon if 4 points
+                                fillColor = Color(0x5500FF00), // Transparent green fill
+                                strokeColor = Color.Black, // Black stroke
+                                strokeWidth = 2f
+                            )
+                        }
+
+                        if (boundaryPointsForDrawing.size >= 2) {
+                            Polyline(
+                                points = boundaryPointsForDrawing + if (boundaryPointsForDrawing.size == 4) listOf(boundaryPointsForDrawing.first()) else emptyList(), // Connect back to the first point if 4 points
+                                color = Color.Black, // Black lines
+                                width = 4f
+                            )
+                        }
+
+                        if (boundaryVisible) {
+                            boundaryPointsForDrawing.forEach { position ->
+                                Circle(
+                                    center = position,
+                                    radius = 3.5,
+                                    fillColor = Color.White,
+                                    strokeColor = Color.Black,
+                                    strokeWidth = 2f
+                                )
+                            }
                         }
 
                         if (markersVisible) {
@@ -168,6 +238,44 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                     }
                 }) {
                     Text("Save Location Data")
+                }
+            }
+
+            if (showSaveCancelButtons) {
+                Row(
+                    modifier = Modifier
+                        .padding(top = 16.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Button(onClick = {
+                        if (boundaryPointsForDrawing.isNotEmpty() && userId != -1) {
+                            val areaBoundaryData = AreaBoundaryData(
+                            userId = userId,
+                            point1Lat = boundaryPointsForDrawing[0].latitude,
+                            point1Long = boundaryPointsForDrawing[0].longitude,
+                            point2Lat = boundaryPointsForDrawing[1].latitude,
+                            point2Long = boundaryPointsForDrawing[1].longitude,
+                            point3Lat = boundaryPointsForDrawing[2].latitude,
+                            point3Long = boundaryPointsForDrawing[2].longitude,
+                            point4Lat = boundaryPointsForDrawing[3].latitude,
+                            point4Long = boundaryPointsForDrawing[3].longitude
+                        )
+                            applicationViewModel.insertAreaBoundaryData(areaBoundaryData)
+                            showSaveCancelButtons = false
+                            boundaryPointsForDrawing = emptyList()
+                        }
+                    }) {
+                        Text("Save")
+                    }
+
+                    Button(onClick = {
+                        boundaryPointsForDrawing = emptyList() // Clear boundary points
+                        boundaryVisible = false
+                        showSaveCancelButtons = false // Hide buttons
+                    }) {
+                        Text("Cancel")
+                    }
                 }
             }
 

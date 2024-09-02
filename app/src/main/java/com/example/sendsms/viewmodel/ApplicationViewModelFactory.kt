@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.example.sendsms.database.AppDatabase
+import com.example.sendsms.database.repository.AreaBoundaryDataRepository
 import com.example.sendsms.database.repository.GPSDataRepository
 import com.example.sendsms.database.repository.UserRepository
 
@@ -19,10 +20,14 @@ class ApplicationViewModelFactory(
         AppDatabase.getDatabase(application).gpsDataDao()
     )
 
+    private val areaBoundaryDataRepository: AreaBoundaryDataRepository = AreaBoundaryDataRepository(
+        AppDatabase.getDatabase(application).areaBoundaryDataDao()
+    )
+
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ApplicationViewModel::class.java)) {
-            return ApplicationViewModel(userRepository, gpsDataRepository, application) as T
+            return ApplicationViewModel(userRepository, gpsDataRepository, areaBoundaryDataRepository, application) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

@@ -5,8 +5,10 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.sendsms.database.entity.AreaBoundaryData
 import com.example.sendsms.database.entity.GPSData
 import com.example.sendsms.database.entity.User
+import com.example.sendsms.database.repository.AreaBoundaryDataRepository
 import com.example.sendsms.database.repository.GPSDataRepository
 import com.example.sendsms.database.repository.UserRepository
 import kotlinx.coroutines.flow.Flow
@@ -17,6 +19,7 @@ import kotlinx.coroutines.launch
 class ApplicationViewModel(
     private val userRepository: UserRepository,
     private val gpsDataRepository: GPSDataRepository,
+    private val areaBoundaryDataRepository: AreaBoundaryDataRepository,
     application: Application
 ) : ViewModel() {
 
@@ -33,6 +36,9 @@ class ApplicationViewModel(
 
     private val _recentGPSData = MutableStateFlow<List<GPSData>>(emptyList())
     val recentGPSData: StateFlow<List<GPSData>> = _recentGPSData
+
+    private val _areaBoundaries = MutableStateFlow<List<AreaBoundaryData>>(emptyList())
+    val areaBoundaries: StateFlow<List<AreaBoundaryData>> = _areaBoundaries
 
     suspend fun registerUser(username: String, password: String, gpsLocatorNumber: String) {
         val existingUser = userRepository.getUserByUsername(username)
@@ -150,6 +156,30 @@ class ApplicationViewModel(
                 _recentGPSData.value = emptyList()
                 Log.d("ApplicationViewModel", "All GPS data deleted for userId: $userId")
             }
+        }
+    }
+
+    fun insertAreaBoundaryData(areaBoundaryData: AreaBoundaryData) {
+        viewModelScope.launch {
+            areaBoundaryDataRepository.insert(areaBoundaryData)
+            Log.d("ApplicationViewModel", "Successful Area Boundary Data save: $areaBoundaryData")
+        }
+    }
+
+    fun getBoundariesForUser(userId: Int) {
+        viewModelScope.launch {
+            areaBoundaryDataRepository.getBoundariesForUser(userId).let { boundaries ->
+                _areaBoundaries.value = boundaries
+                Log.d("ApplicationViewModel", "Area Boundaries: ${_areaBoundaries.value}")
+            }
+        }
+    }
+
+    fun removeBoundariesForUser(userId: Int) {
+        viewModelScope.launch {
+            areaBoundaryDataRepository.removeBoundariesForUser(userId)
+            _areaBoundaries.value = emptyList()
+            Log.d("ApplicationViewModel", "Removed all area boundaries for userId: $userId")
         }
     }
 }
