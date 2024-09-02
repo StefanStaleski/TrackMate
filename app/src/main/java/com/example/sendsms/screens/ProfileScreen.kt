@@ -25,7 +25,6 @@ import com.example.sendsms.components.BaseTemplate
 import com.example.sendsms.viewmodel.ApplicationViewModel
 import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -39,12 +38,12 @@ fun ProfileScreen(
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
 
-    // Example user data
     val userName by remember {
         mutableStateOf(
             sharedPreferences.getString("username", "N/A") ?: "N/A"
         )
     }
+
     val gpsLocatorNumber by remember {
         mutableStateOf(
             sharedPreferences.getString(
@@ -64,7 +63,7 @@ fun ProfileScreen(
     }
 
     val lastBatteryCheckTimestamp by remember {
-        mutableStateOf(
+        mutableLongStateOf(
             sharedPreferences.getLong("lastBatteryCheck", 0L)
         )
     }
@@ -76,25 +75,23 @@ fun ProfileScreen(
         "N/A"
     }
 
-    val currentBatteryPercentage = "85%"
 
     var showDialog by remember { mutableStateOf(false) }
 
-    // Handle save action
     fun handleSave(newUsername: String, newGpsLocator: String) {
         val currentUsername = sharedPreferences.getString("username", null) ?: return
 
         applicationViewModel.updateUser(
             username = currentUsername,
             newUsername = newUsername,
-            newPassword = null, // Assuming password is not being changed here
+            newPassword = null,
             newGpsLocatorNumber = newGpsLocator
         )
 
         with(sharedPreferences.edit()) {
             putString("username", newUsername)
             putString("gpsLocatorNumber", newGpsLocator)
-            apply() // or commit() if you prefer
+            apply()
         }
     }
 
@@ -106,17 +103,16 @@ fun ProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp), // Padding around the entire column
-            verticalArrangement = Arrangement.Center, // Center content vertically
-            horizontalAlignment = Alignment.CenterHorizontally // Center content horizontally
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // User Name
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray),
                 elevation = CardDefaults.elevatedCardElevation(4.dp)
             ) {
                 Row(
@@ -133,19 +129,17 @@ fun ProfileScreen(
                     )
                     Text(
                         text = "Username: $userName",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
                         fontSize = 16.sp
                     )
                 }
             }
-
-            // GPS Locator Number
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray),
                 elevation = CardDefaults.elevatedCardElevation(4.dp)
             ) {
                 Row(
@@ -157,24 +151,22 @@ fun ProfileScreen(
                     Icon(
                         imageVector = Icons.Default.LocationOn,
                         contentDescription = "GPS Icon",
-                        tint = Color.White, // Icon color
+                        tint = Color.White,
                         modifier = Modifier.padding(end = 8.dp)
                     )
                     Text(
                         text = "GPS Locator Number: $gpsLocatorNumber",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
                         fontSize = 16.sp
                     )
                 }
             }
-
-            // Current Battery Percentage
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 8.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray),
                 elevation = CardDefaults.elevatedCardElevation(4.dp)
             ) {
                 Row(
@@ -186,24 +178,22 @@ fun ProfileScreen(
                     Icon(
                         imageVector = Icons.Default.BatteryFull,
                         contentDescription = "Battery Icon",
-                        tint = Color.White, // Icon color
+                        tint = Color.White,
                         modifier = Modifier.padding(end = 8.dp)
                     )
                     Text(
                         text = "Current Battery Percentage: $batteryPercentage",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
                         fontSize = 16.sp
                     )
                 }
             }
-
-            // Last Battery Check
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp),
                 shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.DarkGray), // Card background color
+                colors = CardDefaults.cardColors(containerColor = Color.DarkGray),
                 elevation = CardDefaults.elevatedCardElevation(4.dp)
             ) {
                 Row(
@@ -215,39 +205,26 @@ fun ProfileScreen(
                     Icon(
                         imageVector = Icons.Default.AccessTime,
                         contentDescription = "Time Icon",
-                        tint = Color.White, // Icon color
+                        tint = Color.White,
                         modifier = Modifier.padding(end = 8.dp)
                     )
                     Text(
                         text = "Last Battery Check: $formattedLastCheck",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White), // Text color
+                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White),
                         fontSize = 16.sp
                     )
                 }
             }
-
-            // Edit Profile Button
             AppButton(
                 text = "Edit Profile",
                 onClick = { showDialog = true },
-                contentColor = Color.White, // Button text color
+                contentColor = Color.White,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
             )
-
-            // Navigate to SMS Screen Button
-//            AppButton(
-//                text = "Send SMS",
-//                onClick = { navController.navigate("sms") }, // Navigate to the SMSScreen
-//                backgroundColor = Color.Blue, // Button background color
-//                contentColor = Color.White, // Button text color
-//                modifier = Modifier
-//                    .fillMaxWidth()
-//            )
         }
 
-        // EditProfileDialog
         EditProfileDialog(
             showDialog = showDialog,
             onDismiss = { showDialog = false },
@@ -264,6 +241,5 @@ fun ProfileScreen(
 @Preview(showBackground = true)
 @Composable
 fun ProfileScreenPreview() {
-    // Provide a dummy NavHostController for preview
     ProfileScreen(navController = rememberNavController())
 }

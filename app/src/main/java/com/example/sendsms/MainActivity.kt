@@ -45,7 +45,7 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             val message = intent.getStringExtra("message") ?: ""
             // Update the received message in SharedPreferences and the UI
-            val sharedPreferences = context.getSharedPreferences("SMS_PREFS", Context.MODE_PRIVATE)
+            val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
             sharedPreferences.edit().putString("received_sms", message).apply()
             // Trigger recomposition
             _receivedMessage.value = message
