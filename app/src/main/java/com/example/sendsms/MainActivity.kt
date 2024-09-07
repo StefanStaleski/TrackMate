@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -29,7 +30,15 @@ import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.ui.platform.LocalContext
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequest
 import com.example.sendsms.screens.SMSScreen
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.sendsms.services.NotificationHelper
+import com.example.sendsms.services.NotificationWorker
+import java.util.concurrent.TimeUnit
 
 class MainActivity : ComponentActivity() {
     private val smsPermissionRequest =
@@ -45,7 +54,8 @@ class MainActivity : ComponentActivity() {
         override fun onReceive(context: Context, intent: Intent) {
             val message = intent.getStringExtra("message") ?: ""
             // Update the received message in SharedPreferences and the UI
-            val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+            val sharedPreferences =
+                context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
             sharedPreferences.edit().putString("received_sms", message).apply()
             // Trigger recomposition
             _receivedMessage.value = message
@@ -58,6 +68,23 @@ class MainActivity : ComponentActivity() {
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+//        val workRequest = PeriodicWorkRequestBuilder<NotificationWorker>(15, TimeUnit.MINUTES)
+//            .build()
+//        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+//            "NotificationWorker",
+//            ExistingPeriodicWorkPolicy.UPDATE,
+//            workRequest
+//        )
+        // Enqueue the NotificationWorker for immediate execution (for testing purposes)
+        val oneTimeWorkRequest = OneTimeWorkRequest.Builder(NotificationWorker::class.java)
+            .build()
+        WorkManager.getInstance(this).enqueueUniqueWork(
+            "NotificationWorker",
+            ExistingWorkPolicy.REPLACE,
+            oneTimeWorkRequest
+        )
+
 
         val permissionsToRequest = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(
@@ -74,6 +101,17 @@ class MainActivity : ComponentActivity() {
         ) {
             permissionsToRequest.add(Manifest.permission.RECEIVE_SMS)
         }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
         if (permissionsToRequest.isNotEmpty()) {
             smsPermissionRequest.launch(permissionsToRequest.toTypedArray())
         }

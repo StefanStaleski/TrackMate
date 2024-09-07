@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     implementation(libs.play.services.location)
+    implementation(libs.androidx.work)
     ksp(libs.room.compiler)
     implementation(libs.play.services.maps)
     implementation(libs.maps.compose)

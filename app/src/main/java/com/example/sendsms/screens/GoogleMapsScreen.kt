@@ -262,7 +262,11 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             if (showSaveCancelButtons) {
-                                Button(onClick = {
+                                Button(
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF4CAF50)
+                                    ),
+                                    onClick = {
                                     if (boundaryPointsForDrawing.isNotEmpty() && userId != -1) {
                                         val areaBoundaryData = AreaBoundaryData(
                                             userId = userId,
@@ -290,7 +294,11 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
 
                                 Spacer(modifier = Modifier.width(8.dp))
 
-                                Button(onClick = {
+                                Button(
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF4CAF50)
+                                    ),
+                                    onClick = {
                                     boundaryPointsForDrawing = emptyList() // Clear boundary points
                                     boundaryVisible = false
                                     showSaveCancelButtons = false // Hide buttons
@@ -300,7 +308,11 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                             }
 
                             if (selectedPolygonId != null) {
-                                Button(onClick = {
+                                Button(
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(0xFF4CAF50)
+                                    ),
+                                    onClick = {
                                     selectedPolygonId?.let { id ->
                                         applicationViewModel.removeBoundaryById(id)
                                     }
@@ -316,6 +328,9 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                     // Cancel Button in the top right corner
                     if (selectedPolygonId != null) {
                         Button(
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4CAF50)
+                            ),
                             onClick = {
                                 selectedPolygonId = null // Just deselect the polygon
                             },
@@ -331,7 +346,11 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Button(onClick = {
+                Button(
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4CAF50)
+                    ),
+                    onClick = {
                     userLocation?.let { location ->
                         val batteryPercentage = Random.nextInt(1, 101)
 

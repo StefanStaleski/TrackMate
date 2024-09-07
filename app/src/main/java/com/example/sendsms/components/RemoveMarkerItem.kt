@@ -24,7 +24,7 @@ fun RemoveMarkerItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val iconColor = Color(0xFF4CAF50) // Green color for the icon
+    val iconColor = Color(0xFF4CAF50)
     Column(
         modifier = modifier
             .clickable(onClick = onClick)
