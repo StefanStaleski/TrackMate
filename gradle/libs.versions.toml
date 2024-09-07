@@ -17,7 +17,7 @@ material = "1.6.8"
 room = "2.5.1"
 
 playServicesMaps = "19.0.0"
-mapsCompose = "2.0.0"
+mapsCompose = "6.1.2"
 playServicesLocation = "21.3.0"
 
 [libraries]

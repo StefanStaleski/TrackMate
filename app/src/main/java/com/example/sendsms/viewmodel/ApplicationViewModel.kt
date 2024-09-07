@@ -163,6 +163,12 @@ class ApplicationViewModel(
         viewModelScope.launch {
             areaBoundaryDataRepository.insert(areaBoundaryData)
             Log.d("ApplicationViewModel", "Successful Area Boundary Data save: $areaBoundaryData")
+
+            val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+            val userId = sharedPreferences.getInt("userId", -1)
+            if (userId != -1) {
+                getBoundariesForUser(userId)
+            }
         }
     }
 
@@ -180,6 +186,19 @@ class ApplicationViewModel(
             areaBoundaryDataRepository.removeBoundariesForUser(userId)
             _areaBoundaries.value = emptyList()
             Log.d("ApplicationViewModel", "Removed all area boundaries for userId: $userId")
+        }
+    }
+
+    fun removeBoundaryById(boundaryId: Int) {
+        viewModelScope.launch {
+            areaBoundaryDataRepository.deleteBoundaryById(boundaryId)
+            // Update area boundaries if needed
+            val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+            val userId = sharedPreferences.getInt("userId", -1)
+            if (userId != -1) {
+                getBoundariesForUser(userId)
+            }
+            Log.d("ApplicationViewModel", "Removed area boundary with ID: $boundaryId")
         }
     }
 }

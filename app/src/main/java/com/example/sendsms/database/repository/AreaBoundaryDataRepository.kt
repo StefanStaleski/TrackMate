@@ -16,4 +16,8 @@ class AreaBoundaryDataRepository(private val areaBoundaryDataDao: AreaBoundaryDa
     suspend fun removeBoundariesForUser(userId: Int) {
         areaBoundaryDataDao.removeBoundariesForUser(userId)
     }
+
+    suspend fun deleteBoundaryById(id: Int) {
+        areaBoundaryDataDao.deleteBoundaryById(id)
+    }
 }

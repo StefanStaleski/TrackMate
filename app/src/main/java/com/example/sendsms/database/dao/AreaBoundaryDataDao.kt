@@ -1,6 +1,7 @@
 package com.example.sendsms.database.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.Query
 import com.example.sendsms.database.entity.AreaBoundaryData
@@ -16,4 +17,7 @@ interface AreaBoundaryDataDao {
 
     @Query("DELETE FROM area_boundary_data WHERE user_id = :userId")
     suspend fun removeBoundariesForUser(userId: Int)
+
+    @Query("DELETE FROM area_boundary_data WHERE id = :id")
+    suspend fun deleteBoundaryById(id: Int)
 }

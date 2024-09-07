@@ -5,6 +5,7 @@ import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -43,6 +44,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.random.Random
+import com.example.sendsms.utils.isPointInPolygon
 
 @Composable
 fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: ApplicationViewModel = viewModel(
@@ -60,6 +62,9 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
     var boundaryPointsForDrawing by remember { mutableStateOf<List<LatLng>>(emptyList()) }
     var boundaryVisible by remember { mutableStateOf(false) }
     var showSaveCancelButtons by remember { mutableStateOf(false) }
+    var selectedPolygon: List<LatLng>? by remember { mutableStateOf(null) }
+    var selectedPolygonId by remember { mutableStateOf<Int?>(null) }
+
 
 
     val googleMap by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
@@ -91,6 +96,7 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
     }
 
     LaunchedEffect(areaBoundaries) {
+        Log.d("AREA", "BOUNDARIES: $areaBoundaries")
         boundaryPoints = areaBoundaries.filter { it.userId == userId }.map { boundary ->
             listOf(
                 LatLng(boundary.point1Lat, boundary.point1Long),
@@ -147,10 +153,26 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                             googleMap?.mapType = com.google.android.gms.maps.GoogleMap.MAP_TYPE_NORMAL
                         },
                         onMapClick = { latLng ->
-                            if (boundaryPointsForDrawing.size < 4) {
+                            val isInsidePolygon = boundaryPoints.any { polygon ->
+                                isPointInPolygon(latLng, polygon)
+                            }
+
+                            if (isInsidePolygon) {
+                                selectedPolygonId = areaBoundaries.firstOrNull { boundary ->
+                                    isPointInPolygon(latLng, listOf(
+                                        LatLng(boundary.point1Lat, boundary.point1Long),
+                                        LatLng(boundary.point2Lat, boundary.point2Long),
+                                        LatLng(boundary.point3Lat, boundary.point3Long),
+                                        LatLng(boundary.point4Lat, boundary.point4Long)
+                                    ))
+                                }?.id
+                                showSaveCancelButtons = false
+                                boundaryPointsForDrawing = emptyList() // Clear any ongoing drawing
+                            } else if (selectedPolygonId == null && boundaryPointsForDrawing.size < 4) {
+                                // Continue drawing a new polygon
                                 boundaryPointsForDrawing = boundaryPointsForDrawing + latLng
                                 boundaryVisible = true
-                                showSaveCancelButtons = boundaryPointsForDrawing.size > 2
+                                showSaveCancelButtons = boundaryPointsForDrawing.size > 3
                             }
                         }
                     ) {
@@ -159,7 +181,20 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                                 points = points + if (points.size == 4) listOf(points.first()) else emptyList(),
                                 fillColor = Color(0x5500FF00), // Transparent green fill
                                 strokeColor = Color.Black, // Black stroke
-                                strokeWidth = 2f
+                                strokeWidth = 2f,
+                                onClick = {
+                                    // Select the clicked polygon and prevent new boundary points from being drawn
+                                    selectedPolygonId = areaBoundaries.firstOrNull { boundary ->
+                                        isPointInPolygon(points.first(), listOf(
+                                            LatLng(boundary.point1Lat, boundary.point1Long),
+                                            LatLng(boundary.point2Lat, boundary.point2Long),
+                                            LatLng(boundary.point3Lat, boundary.point3Long),
+                                            LatLng(boundary.point4Lat, boundary.point4Long)
+                                        ))
+                                    }?.id
+                                    showSaveCancelButtons = false
+                                    boundaryPointsForDrawing = emptyList() // Clear any ongoing drawing
+                                }
                             )
                         }
 
@@ -218,6 +253,80 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                             }
                         }
                     }
+                    if (showSaveCancelButtons || selectedPolygonId != null) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(16.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            if (showSaveCancelButtons) {
+                                Button(onClick = {
+                                    if (boundaryPointsForDrawing.isNotEmpty() && userId != -1) {
+                                        val areaBoundaryData = AreaBoundaryData(
+                                            userId = userId,
+                                            point1Lat = boundaryPointsForDrawing[0].latitude,
+                                            point1Long = boundaryPointsForDrawing[0].longitude,
+                                            point2Lat = boundaryPointsForDrawing[1].latitude,
+                                            point2Long = boundaryPointsForDrawing[1].longitude,
+                                            point3Lat = boundaryPointsForDrawing[2].latitude,
+                                            point3Long = boundaryPointsForDrawing[2].longitude,
+                                            point4Lat = boundaryPointsForDrawing[3].latitude,
+                                            point4Long = boundaryPointsForDrawing[3].longitude
+                                        )
+                                        applicationViewModel.insertAreaBoundaryData(areaBoundaryData)
+
+                                        boundaryPoints = boundaryPoints + listOf(boundaryPointsForDrawing)
+
+                                        showSaveCancelButtons = false
+                                        boundaryPointsForDrawing = emptyList()
+                                        boundaryVisible = false
+                                        applicationViewModel.getBoundariesForUser(userId)
+                                    }
+                                }) {
+                                    Text("Save")
+                                }
+
+                                Spacer(modifier = Modifier.width(8.dp))
+
+                                Button(onClick = {
+                                    boundaryPointsForDrawing = emptyList() // Clear boundary points
+                                    boundaryVisible = false
+                                    showSaveCancelButtons = false // Hide buttons
+                                }) {
+                                    Text("Cancel")
+                                }
+                            }
+
+                            if (selectedPolygonId != null) {
+                                Button(onClick = {
+                                    selectedPolygonId?.let { id ->
+                                        applicationViewModel.removeBoundaryById(id)
+                                    }
+                                    boundaryPoints = boundaryPoints.filter { it != selectedPolygon }
+                                    selectedPolygonId = null
+                                }) {
+                                    Text("Remove")
+                                }
+                            }
+                        }
+                    }
+
+                    // Cancel Button in the top right corner
+                    if (selectedPolygonId != null) {
+                        Button(
+                            onClick = {
+                                selectedPolygonId = null // Just deselect the polygon
+                            },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(16.dp)
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -240,44 +349,6 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                     }
                 }) {
                     Text("Save Location Data")
-                }
-            }
-
-            if (showSaveCancelButtons) {
-                Row(
-                    modifier = Modifier
-                        .padding(top = 16.dp)
-                        .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Button(onClick = {
-                        if (boundaryPointsForDrawing.isNotEmpty() && userId != -1) {
-                            val areaBoundaryData = AreaBoundaryData(
-                            userId = userId,
-                            point1Lat = boundaryPointsForDrawing[0].latitude,
-                            point1Long = boundaryPointsForDrawing[0].longitude,
-                            point2Lat = boundaryPointsForDrawing[1].latitude,
-                            point2Long = boundaryPointsForDrawing[1].longitude,
-                            point3Lat = boundaryPointsForDrawing[2].latitude,
-                            point3Long = boundaryPointsForDrawing[2].longitude,
-                            point4Lat = boundaryPointsForDrawing[3].latitude,
-                            point4Long = boundaryPointsForDrawing[3].longitude
-                        )
-                            applicationViewModel.insertAreaBoundaryData(areaBoundaryData)
-                            showSaveCancelButtons = false
-                            boundaryPointsForDrawing = emptyList()
-                        }
-                    }) {
-                        Text("Save")
-                    }
-
-                    Button(onClick = {
-                        boundaryPointsForDrawing = emptyList() // Clear boundary points
-                        boundaryVisible = false
-                        showSaveCancelButtons = false // Hide buttons
-                    }) {
-                        Text("Cancel")
-                    }
                 }
             }
 
