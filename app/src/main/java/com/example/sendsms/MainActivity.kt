@@ -39,6 +39,15 @@ import androidx.work.WorkManager
 import com.example.sendsms.services.NotificationHelper
 import com.example.sendsms.services.NotificationWorker
 import java.util.concurrent.TimeUnit
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
+import com.example.sendsms.components.SmsResponseDialog
+import com.example.sendsms.utils.DialogUtils
+import android.widget.Toast
+import com.example.sendsms.screens.SmsDisplayScreen
+import com.example.sendsms.services.GpsPollingWorker
+import com.example.sendsms.services.GpsTimeoutWorker
+import com.example.sendsms.services.BatteryMonitorWorker
+import androidx.core.app.ActivityCompat
 
 class MainActivity : ComponentActivity() {
     private val smsPermissionRequest =
@@ -65,6 +74,35 @@ class MainActivity : ComponentActivity() {
     private val _receivedMessage = mutableStateOf("")
     private val receivedMessage: State<String> get() = _receivedMessage
 
+    private val dialogReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            Log.d("DialogReceiver", "Received intent: ${intent.action}")
+            if (intent.action == DialogUtils.ACTION_SHOW_SMS_DIALOG) {
+                val message = intent.getStringExtra(DialogUtils.EXTRA_SMS_MESSAGE) ?: ""
+                val sender = intent.getStringExtra(DialogUtils.EXTRA_SMS_SENDER) ?: ""
+                
+                Log.d("DialogReceiver", "Showing dialog for message: $message from $sender")
+                
+                // Update dialog state
+                _showSmsDialog.value = true
+                _dialogSender.value = sender
+                _dialogMessage.value = message
+                
+                // Also show a Toast as a fallback
+                Toast.makeText(
+                    context,
+                    "GPS Locator: $message",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+    
+    // State for dialog
+    private val _showSmsDialog = mutableStateOf(false)
+    private val _dialogSender = mutableStateOf("")
+    private val _dialogMessage = mutableStateOf("")
+
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -85,6 +123,43 @@ class MainActivity : ComponentActivity() {
             oneTimeWorkRequest
         )
 
+        // Schedule the GPS polling worker to run every 30 minutes
+        val gpsPollingRequest = PeriodicWorkRequestBuilder<GpsPollingWorker>(
+            30, TimeUnit.MINUTES,
+            15, TimeUnit.MINUTES // Flex period
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "GpsPollingWorker",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            gpsPollingRequest
+        )
+
+        // Schedule the timeout checker to run every 30 seconds
+        val timeoutCheckRequest = PeriodicWorkRequestBuilder<GpsTimeoutWorker>(
+            30, TimeUnit.SECONDS,
+            5, TimeUnit.SECONDS // Flex period
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "GpsTimeoutWorker",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            timeoutCheckRequest
+        )
+
+        // Schedule the battery monitor worker to run every hour
+        val batteryMonitorRequest = PeriodicWorkRequestBuilder<BatteryMonitorWorker>(
+            1, TimeUnit.HOURS,
+            15, TimeUnit.MINUTES // Flex period
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "BatteryMonitorWorker",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            batteryMonitorRequest
+        )
+
+        Log.d("MainActivity", "Scheduled GPS polling, timeout, and battery monitor workers")
 
         val permissionsToRequest = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(
@@ -118,6 +193,10 @@ class MainActivity : ComponentActivity() {
 
         val intentFilter = IntentFilter("com.example.sendsms.SMS_RECEIVED")
         registerReceiver(smsReceiver, intentFilter)
+
+        // Register for dialog broadcasts
+        val dialogIntentFilter = IntentFilter(DialogUtils.ACTION_SHOW_SMS_DIALOG)
+        LocalBroadcastManager.getInstance(this).registerReceiver(dialogReceiver, dialogIntentFilter)
 
         setContent {
             SendSMSTheme {
@@ -171,14 +250,55 @@ class MainActivity : ComponentActivity() {
                                 receivedMessage = receivedMessage.value
                             )
                         }
+                        composable("sms_display") {
+                            SmsDisplayScreen(navController = navController)
+                        }
                     }
+                }
+
+                // Add the dialog
+                if (_showSmsDialog.value) {
+                    SmsResponseDialog(
+                        sender = _dialogSender.value,
+                        message = _dialogMessage.value,
+                        onDismiss = { _showSmsDialog.value = false }
+                    )
                 }
             }
         }
+
+        // Call this in onCreate after requesting other permissions
+        requestNotificationPermissionIfNeeded()
     }
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(smsReceiver)
+        LocalBroadcastManager.getInstance(this).unregisterReceiver(dialogReceiver)
+    }
+
+    // Add this function to check if notification permission is granted
+    private fun areNotificationsEnabled(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED
+        }
+        return true
+    }
+
+    // Call this in onCreate after requesting other permissions
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (!areNotificationsEnabled()) {
+                Log.d("MainActivity", "Requesting notification permission")
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    100
+                )
+            }
+        }
     }
 }

@@ -19,6 +19,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.sendsms.components.ActionItem
 import com.example.sendsms.components.BaseTemplate
+import com.example.sendsms.utils.SMSScheduler
 import com.example.sendsms.utils.sendSMS
 import com.example.sendsms.viewmodel.ApplicationViewModel
 import com.example.sendsms.viewmodel.ApplicationViewModelFactory
@@ -33,6 +34,15 @@ fun ActionsScreen(
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
     val gpsLocatorNumber = sharedPreferences.getString("gpsLocatorNumber", "") ?: ""
+
+    // Effect to automatically send location SMS when screen is shown
+    LaunchedEffect(Unit) {
+        if (gpsLocatorNumber.isNotBlank()) {
+            // Schedule SMS to be sent immediately (0 second delay)
+            SMSScheduler.scheduleSMS(context, gpsLocatorNumber, "777", 0)
+            applicationViewModel.getLatestGPSDataForUser()
+        }
+    }
 
     BaseTemplate(navController = navController) {
         Column(
@@ -61,7 +71,8 @@ fun ActionsScreen(
                         text = "Get Location",
                         onClick = {
                             applicationViewModel.getLatestGPSDataForUser()
-                            sendSMS(gpsLocatorNumber, "777")
+                            // Use the scheduler instead of direct SMS
+                            SMSScheduler.scheduleSMS(context, gpsLocatorNumber, "777", 0)
                         },
                         iconColor = iconColor,
                         modifier = Modifier.weight(1f).padding(8.dp) // Weight to fill space evenly
@@ -99,6 +110,21 @@ fun ActionsScreen(
                         },
                         iconColor = iconColor,
                         modifier = Modifier.weight(1f).padding(8.dp) // Weight to fill space evenly
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    ActionItem(
+                        icon = Icons.Filled.Message,
+                        text = "View Messages",
+                        onClick = {
+                            navController.navigate("sms_display")
+                        },
+                        iconColor = iconColor,
+                        modifier = Modifier.weight(1f).padding(8.dp)
                     )
                 }
             }

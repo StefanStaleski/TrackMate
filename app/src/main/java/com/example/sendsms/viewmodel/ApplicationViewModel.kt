@@ -189,16 +189,18 @@ class ApplicationViewModel(
         }
     }
 
-    fun removeBoundaryById(boundaryId: Int) {
+    fun removeBoundaryById(id: Int) {
         viewModelScope.launch {
-            areaBoundaryDataRepository.deleteBoundaryById(boundaryId)
-            // Update area boundaries if needed
+            areaBoundaryDataRepository.deleteBoundaryById(id)
+            
+            // Refresh the boundaries list
             val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
             val userId = sharedPreferences.getInt("userId", -1)
             if (userId != -1) {
                 getBoundariesForUser(userId)
             }
-            Log.d("ApplicationViewModel", "Removed area boundary with ID: $boundaryId")
+            
+            Log.d("ApplicationViewModel", "Removed boundary with id: $id")
         }
     }
 }
