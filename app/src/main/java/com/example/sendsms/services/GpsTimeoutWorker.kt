@@ -10,6 +10,7 @@ import androidx.work.WorkerParameters
 import com.example.sendsms.utils.SMSScheduler
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.util.concurrent.TimeUnit
 
 class GpsTimeoutWorker(
     appContext: Context,
@@ -23,17 +24,35 @@ class GpsTimeoutWorker(
     
     companion object {
         private const val TAG = "GpsTimeoutWorker"
-        private const val TIMEOUT_DURATION_MS = 30 * 1000 // 30 seconds timeout
+        private const val TIMEOUT_DURATION_MS = 60 * 1000L // 60 seconds timeout
         private const val MAX_RETRIES = 2 // Allow 3 attempts total (initial + 2 retries)
         private const val GPS_NOTIFICATION_KEY = "last_gps_error_notification_time"
         private const val NOTIFICATION_COOLDOWN = 2 * 60 * 60 * 1000 // 2 hours in milliseconds
+        
+        // Add this method to schedule the worker from other classes
+        fun scheduleTimeoutCheck(context: Context) {
+            val workRequest = OneTimeWorkRequestBuilder<GpsTimeoutWorker>()
+                .setInitialDelay(TIMEOUT_DURATION_MS, TimeUnit.MILLISECONDS)
+                .build()
+            
+            WorkManager.getInstance(context).enqueue(workRequest)
+            Log.d(TAG, "Scheduled one-time GpsTimeoutWorker to run after ${TIMEOUT_DURATION_MS/1000} seconds")
+        }
     }
     
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         try {
             val pollingInProgress = sharedPreferences.getBoolean("gpsPollingInProgress", false)
+            val manualPollingInProgress = sharedPreferences.getBoolean("manualGpsPollingInProgress", false)
+            val lastResponseType = sharedPreferences.getString("lastGpsResponseType", "")
             
-            if (!pollingInProgress) {
+            Log.d(TAG, "GpsTimeoutWorker running: pollingInProgress=$pollingInProgress, " +
+                    "manualPollingInProgress=$manualPollingInProgress, " +
+                    "lastResponseType=$lastResponseType")
+            
+            // Check if we're in a polling state or if the last response was invalid
+            if (!pollingInProgress && !manualPollingInProgress && lastResponseType != "invalid") {
+                Log.d(TAG, "No polling in progress, exiting")
                 return@withContext Result.success()
             }
             
@@ -61,10 +80,12 @@ class GpsTimeoutWorker(
                     // Reset polling state
                     sharedPreferences.edit()
                         .putBoolean("gpsPollingInProgress", false)
+                        .putBoolean("manualGpsPollingInProgress", false)
                         .putInt("gpsPollingRetryCount", 0)
+                        .putString("lastGpsResponseType", "")  // Clear response type too
                         .apply()
                     
-                    // Send notification about failure - ALWAYS send it when max retries reached
+                    // Send notification about failure
                     notificationHelper.sendNotification(
                         "GPS Locator Error",
                         "GPS Locator is not responding after multiple attempts. Please check the device.",

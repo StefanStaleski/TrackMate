@@ -21,6 +21,7 @@ class NotificationHelper(private val context: Context) {
         const val CHANNEL_DEFAULT = "default_channel"
         const val CHANNEL_BATTERY = "battery_channel"
         const val CHANNEL_GPS_ERROR = "gps_error_channel"
+        const val CHANNEL_LOCATION = "location_channel"
         
         private const val NOTIFICATION_ID_DEFAULT = 1
         private const val NOTIFICATION_ID_BATTERY = 2
@@ -60,6 +61,13 @@ class NotificationHelper(private val context: Context) {
                     description = "Notifications about GPS Locator errors or timeouts"
                     enableLights(true)
                     enableVibration(true)
+                },
+                NotificationChannel(
+                    CHANNEL_LOCATION,
+                    "Location Notifications",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notifications for GPS locator location alerts"
                 }
             )
             
@@ -73,7 +81,7 @@ class NotificationHelper(private val context: Context) {
         }
     }
 
-    fun sendNotification(title: String, message: String, channelId: String = CHANNEL_DEFAULT) {
+    fun sendNotification(title: String, message: String, channelId: String = CHANNEL_LOCATION) {
         Log.d("NotificationHelper", "Attempting to send notification: $title - $message on channel $channelId")
         
         if (ActivityCompat.checkSelfPermission(
@@ -110,6 +118,7 @@ class NotificationHelper(private val context: Context) {
             val notificationId = when (channelId) {
                 CHANNEL_BATTERY -> NOTIFICATION_ID_BATTERY
                 CHANNEL_GPS_ERROR -> NOTIFICATION_ID_GPS_ERROR
+                CHANNEL_LOCATION -> 3
                 else -> NOTIFICATION_ID_DEFAULT
             }
 

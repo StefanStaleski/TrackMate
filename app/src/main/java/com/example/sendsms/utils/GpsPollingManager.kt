@@ -5,8 +5,12 @@ import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.sendsms.services.GpsTimeoutWorker
 import com.example.sendsms.services.NotificationHelper
 import com.example.sendsms.utils.SMSScheduler
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -24,7 +28,7 @@ class GpsPollingManager private constructor(private val context: Context) {
     
     companion object {
         private const val TAG = "GpsPollingManager"
-        private const val TIMEOUT_DURATION_MS = 30 * 1000L // 30 seconds
+        private const val TIMEOUT_DURATION_MS = 60 * 1000L // 60 seconds (increased from 30)
         private const val MAX_RETRIES = 2 // Allow 3 attempts total (initial + 2 retries)
         private const val GPS_NOTIFICATION_KEY = "last_gps_error_notification_time"
         
@@ -93,7 +97,11 @@ class GpsPollingManager private constructor(private val context: Context) {
                         SMSScheduler.scheduleSMS(context, gpsLocatorNumber, "777", 0)
                         
                         // Schedule the next timeout check
+                        handler.removeCallbacks(timeoutRunnable) // Remove any existing callbacks first
                         handler.postDelayed(timeoutRunnable, TIMEOUT_DURATION_MS)
+                        
+                        // Also schedule a backup worker as a failsafe
+                        GpsTimeoutWorker.scheduleTimeoutCheck(context)
                     } else {
                         Log.e(TAG, "Cannot retry: GPS locator number is blank")
                         isPolling.set(false)
@@ -104,30 +112,47 @@ class GpsPollingManager private constructor(private val context: Context) {
     }
     
     /**
+     * Schedule a backup timeout worker to ensure timeout is detected even if the app is killed
+     */
+    private fun scheduleTimeoutWorker() {
+        val timeoutWorkRequest = OneTimeWorkRequestBuilder<GpsTimeoutWorker>()
+            .setInitialDelay(TIMEOUT_DURATION_MS + 5000, TimeUnit.MILLISECONDS) // Add 5 seconds buffer
+            .build()
+        
+        WorkManager.getInstance(context).enqueue(timeoutWorkRequest)
+    }
+    
+    /**
      * Start GPS polling with automatic retries.
      * @param phoneNumber The phone number to send the GPS polling SMS to
      */
     fun startPolling(phoneNumber: String) {
         if (isPolling.getAndSet(true)) {
-            // Already polling, cancel the previous one first
-            cancelPolling()
-            isPolling.set(true)
+            Log.d(TAG, "GPS polling already in progress, cancelling previous and starting new")
+            handler.removeCallbacks(timeoutRunnable)
         }
         
+        Log.d(TAG, "Starting GPS polling to $phoneNumber")
+        
+        // Reset retry count
         retryCount = 0
         
-        // Update SharedPreferences
+        // Update polling status in SharedPreferences
         sharedPreferences.edit()
+            .putBoolean("gpsPollingInProgress", true)
             .putInt("gpsPollingRetryCount", 0)
             .putLong("lastGpsPollingAttempt", System.currentTimeMillis())
-            .putBoolean("gpsPollingInProgress", true)
             .apply()
         
         // Send the initial SMS
         SMSScheduler.scheduleSMS(context, phoneNumber, "777", 0)
         
         // Schedule the timeout check
+        handler.removeCallbacks(timeoutRunnable) // Remove any existing callbacks first
         handler.postDelayed(timeoutRunnable, TIMEOUT_DURATION_MS)
+        
+        // Also schedule a backup worker as a failsafe
+        scheduleTimeoutWorker()
     }
     
     /**
@@ -147,76 +172,91 @@ class GpsPollingManager private constructor(private val context: Context) {
     
     /**
      * Handle a response from the GPS locator.
-     * @param isValid Whether the response contains valid GPS data
+     * @param isValid Whether the response contained valid coordinates
+     * @param isSpecificallyInvalid Whether the response contained specifically -1,-1 coordinates
      */
-    fun handleResponse(isValid: Boolean) {
-        if (isPolling.get()) {
-            handler.removeCallbacks(timeoutRunnable)
+    fun handleResponse(isValid: Boolean, isSpecificallyInvalid: Boolean = false) {
+        // Cancel the timeout handler
+        handler.removeCallbacks(timeoutRunnable)
+        
+        if (isSpecificallyInvalid) {
+            // This is handled separately in SmsReceiver
+            Log.d(TAG, "Received specifically invalid GPS response (-1,-1)")
             
-            if (!isValid) {
-                // Invalid response, mark for retry
-                sharedPreferences.edit()
-                    .putString("lastGpsResponseType", "invalid")
-                    .apply()
+            sharedPreferences.edit()
+                .putString("lastGpsResponseType", "specifically_invalid")
+                .apply()
+            
+            // We don't reset polling state here because SmsReceiver will handle retries
+        } else if (isValid) {
+            // Valid response, reset polling state
+            Log.d(TAG, "Received valid GPS response, resetting polling state")
+            
+            isPolling.set(false)
+            retryCount = 0
+            
+            sharedPreferences.edit()
+                .putBoolean("gpsPollingInProgress", false)
+                .putInt("gpsPollingRetryCount", 0)
+                .putString("lastGpsResponseType", "valid")
+                .apply()
+        } else {
+            // Invalid response but not -1,-1, handle as before
+            Log.d(TAG, "Received invalid GPS response")
+            
+            sharedPreferences.edit()
+                .putString("lastGpsResponseType", "invalid")
+                .apply()
+            
+            if (retryCount >= MAX_RETRIES) {
+                // Max retries reached, send notification
+                Log.d(TAG, "Max retries reached with invalid data, sending notification")
                 
-                if (retryCount >= MAX_RETRIES) {
-                    // Max retries reached, send notification
-                    Log.d(TAG, "Max retries reached with invalid data, sending notification")
-                    
-                    // Reset polling state
-                    isPolling.set(false)
-                    retryCount = 0
-                    
-                    sharedPreferences.edit()
-                        .putBoolean("gpsPollingInProgress", false)
-                        .putInt("gpsPollingRetryCount", 0)
-                        .apply()
-                    
-                    notificationHelper.sendNotification(
-                        "GPS Locator Error",
-                        "GPS Locator is sending invalid data after multiple attempts. Please check the device.",
-                        NotificationHelper.CHANNEL_GPS_ERROR
-                    )
-                    
-                    // Update last notification time
-                    sharedPreferences.edit()
-                        .putLong(GPS_NOTIFICATION_KEY, System.currentTimeMillis())
-                        .apply()
-                } else {
-                    // Retry
-                    retryCount++
-                    
-                    // Update retry count in SharedPreferences
-                    sharedPreferences.edit()
-                        .putInt("gpsPollingRetryCount", retryCount)
-                        .putLong("lastGpsPollingAttempt", System.currentTimeMillis())
-                        .apply()
-                    
-                    Log.d(TAG, "Retrying GPS polling due to invalid data (attempt ${retryCount + 1}/${MAX_RETRIES + 1})")
-                    
-                    // Send the SMS again
-                    val gpsLocatorNumber = sharedPreferences.getString("gpsLocatorNumber", "") ?: ""
-                    if (gpsLocatorNumber.isNotBlank()) {
-                        SMSScheduler.scheduleSMS(context, gpsLocatorNumber, "777", 0)
-                        
-                        // Schedule the next timeout check
-                        handler.postDelayed(timeoutRunnable, TIMEOUT_DURATION_MS)
-                    } else {
-                        Log.e(TAG, "Cannot retry: GPS locator number is blank")
-                        isPolling.set(false)
-                    }
-                }
-            } else {
-                // Valid response, reset polling state
-                Log.d(TAG, "Received valid GPS response, polling complete")
+                // Reset polling state
                 isPolling.set(false)
                 retryCount = 0
                 
                 sharedPreferences.edit()
                     .putBoolean("gpsPollingInProgress", false)
                     .putInt("gpsPollingRetryCount", 0)
-                    .putString("lastGpsResponseType", "valid")
                     .apply()
+                
+                notificationHelper.sendNotification(
+                    "GPS Locator Error",
+                    "GPS Locator is sending invalid data after multiple attempts. Please check the device.",
+                    NotificationHelper.CHANNEL_GPS_ERROR
+                )
+                
+                // Update last notification time
+                sharedPreferences.edit()
+                    .putLong(GPS_NOTIFICATION_KEY, System.currentTimeMillis())
+                    .apply()
+            } else {
+                // Retry
+                retryCount++
+                
+                // Update retry count in SharedPreferences
+                sharedPreferences.edit()
+                    .putInt("gpsPollingRetryCount", retryCount)
+                    .putLong("lastGpsPollingAttempt", System.currentTimeMillis())
+                    .apply()
+                
+                Log.d(TAG, "Retrying GPS polling due to invalid data (attempt ${retryCount + 1}/${MAX_RETRIES + 1})")
+                
+                // Send the SMS again
+                val gpsLocatorNumber = sharedPreferences.getString("gpsLocatorNumber", "") ?: ""
+                if (gpsLocatorNumber.isNotBlank()) {
+                    SMSScheduler.scheduleSMS(context, gpsLocatorNumber, "777", 0)
+                    
+                    // Schedule the next timeout check
+                    handler.postDelayed(timeoutRunnable, TIMEOUT_DURATION_MS)
+                    
+                    // Also schedule a backup worker as a failsafe
+                    scheduleTimeoutWorker()
+                } else {
+                    Log.e(TAG, "Cannot retry: GPS locator number is blank")
+                    isPolling.set(false)
+                }
             }
         }
     }

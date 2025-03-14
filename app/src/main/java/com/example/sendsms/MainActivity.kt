@@ -48,6 +48,8 @@ import com.example.sendsms.services.GpsPollingWorker
 import com.example.sendsms.services.GpsTimeoutWorker
 import com.example.sendsms.services.BatteryMonitorWorker
 import androidx.core.app.ActivityCompat
+import com.example.sendsms.services.PeriodicSmsWorker
+import com.example.sendsms.screens.SettingsScreen
 
 class MainActivity : ComponentActivity() {
     private val smsPermissionRequest =
@@ -67,7 +69,7 @@ class MainActivity : ComponentActivity() {
                 context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
             sharedPreferences.edit().putString("received_sms", message).apply()
             // Trigger recomposition
-            _receivedMessage.value = message
+            _receivedMessage.value = message    
         }
     }
 
@@ -107,20 +109,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-//        val workRequest = PeriodicWorkRequestBuilder<NotificationWorker>(15, TimeUnit.MINUTES)
-//            .build()
-//        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-//            "NotificationWorker",
-//            ExistingPeriodicWorkPolicy.UPDATE,
-//            workRequest
-//        )
-        // Enqueue the NotificationWorker for immediate execution (for testing purposes)
-        val oneTimeWorkRequest = OneTimeWorkRequest.Builder(NotificationWorker::class.java)
+        val workRequest = PeriodicWorkRequestBuilder<NotificationWorker>(15, TimeUnit.MINUTES)
             .build()
-        WorkManager.getInstance(this).enqueueUniqueWork(
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "NotificationWorker",
-            ExistingWorkPolicy.REPLACE,
-            oneTimeWorkRequest
+            ExistingPeriodicWorkPolicy.UPDATE,
+            workRequest
         )
 
         // Schedule the GPS polling worker to run every 30 minutes
@@ -137,13 +131,13 @@ class MainActivity : ComponentActivity() {
 
         // Schedule the timeout checker to run every 30 seconds
         val timeoutCheckRequest = PeriodicWorkRequestBuilder<GpsTimeoutWorker>(
-            30, TimeUnit.SECONDS,
+            15, TimeUnit.SECONDS,
             5, TimeUnit.SECONDS // Flex period
         ).build()
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "GpsTimeoutWorker",
-            ExistingPeriodicWorkPolicy.UPDATE,
+            "gps_timeout_check",
+            ExistingPeriodicWorkPolicy.REPLACE,
             timeoutCheckRequest
         )
 
@@ -159,7 +153,15 @@ class MainActivity : ComponentActivity() {
             batteryMonitorRequest
         )
 
+        // Schedule the periodic SMS worker to run every hour
+        schedulePeriodicSmsWorker()
+
         Log.d("MainActivity", "Scheduled GPS polling, timeout, and battery monitor workers")
+
+        val oneTimeWorkRequest = OneTimeWorkRequest.Builder(NotificationWorker::class.java)
+            .build()
+        WorkManager.getInstance(this).enqueue(oneTimeWorkRequest)
+        Log.d("MainActivity", "Running NotificationWorker immediately for testing")
 
         val permissionsToRequest = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(
@@ -214,7 +216,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     NavHost(
                         navController = navController,
-                        startDestination = if (isLoggedIn) "profile" else "login",
+                        startDestination = "profile"
                     ) {
                         composable("login") {
                             LoginScreen(
@@ -239,10 +241,10 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                         composable("actions") {
-                            ActionsScreen(navController)
+                            ActionsScreen(navController = navController)
                         }
-                        composable("settings") {
-                            GoogleMapsScreen(navController)
+                        composable("map") {
+                            GoogleMapsScreen(navController = navController)
                         }
                         composable("sms") {
                             SMSScreen(
@@ -300,5 +302,24 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    private fun scheduleGpsTimeoutWorker() {
+        val timeoutCheckRequest = PeriodicWorkRequestBuilder<GpsTimeoutWorker>(
+            15, TimeUnit.SECONDS,
+            5, TimeUnit.SECONDS // Flex period
+        ).build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "gps_timeout_check",
+            ExistingPeriodicWorkPolicy.REPLACE,
+            timeoutCheckRequest
+        )
+        
+        Log.d("MainActivity", "Scheduled GpsTimeoutWorker to run every 15 seconds")
+    }
+
+    private fun schedulePeriodicSmsWorker() {
+        PeriodicSmsWorker.schedulePeriodicSms(this)
     }
 }

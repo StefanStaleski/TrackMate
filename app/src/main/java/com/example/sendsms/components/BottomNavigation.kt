@@ -26,19 +26,19 @@ fun BottomNavigation(navController: NavHostController) {
             navController = navController,
             route = "profile",
             isSelected = currentRoute == "profile",
-            iconResId = R.drawable.person_24px // Replace with actual drawable resource ID
+            iconResId = R.drawable.person_24px // Profile icon
         )
         BottomNavigationButton(
             navController = navController,
             route = "actions",
             isSelected = currentRoute == "actions",
-            iconResId = R.drawable.apps_24px // Replace with actual drawable resource ID
+            iconResId = R.drawable.apps_24px // Actions icon
         )
         BottomNavigationButton(
             navController = navController,
-            route = "settings",
-            isSelected = currentRoute == "settings",
-            iconResId = R.drawable.settings_24px // Replace with actual drawable resource ID
+            route = "map", // Changed from "settings" to "map"
+            isSelected = currentRoute == "map", // Changed from "settings" to "map"
+            iconResId = R.drawable.location_on_24px // Changed to map/location icon
         )
     }
 }
