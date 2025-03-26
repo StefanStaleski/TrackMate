@@ -50,6 +50,12 @@ import com.example.sendsms.services.BatteryMonitorWorker
 import androidx.core.app.ActivityCompat
 import com.example.sendsms.services.PeriodicSmsWorker
 import com.example.sendsms.screens.SettingsScreen
+import com.example.sendsms.SmsReceiver
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
+import androidx.work.OneTimeWorkRequestBuilder
+import com.example.sendsms.services.BackgroundService
 
 class MainActivity : ComponentActivity() {
     private val smsPermissionRequest =
@@ -64,46 +70,22 @@ class MainActivity : ComponentActivity() {
     private val smsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val message = intent.getStringExtra("message") ?: ""
-            // Update the received message in SharedPreferences and the UI
-            val sharedPreferences =
-                context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
-            sharedPreferences.edit().putString("received_sms", message).apply()
-            // Trigger recomposition
-            _receivedMessage.value = message    
+            receivedMessage.value = message
         }
     }
 
-    private val _receivedMessage = mutableStateOf("")
-    private val receivedMessage: State<String> get() = _receivedMessage
-
-    private val dialogReceiver = object : BroadcastReceiver() {
+    private val bindingReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            Log.d("DialogReceiver", "Received intent: ${intent.action}")
-            if (intent.action == DialogUtils.ACTION_SHOW_SMS_DIALOG) {
-                val message = intent.getStringExtra(DialogUtils.EXTRA_SMS_MESSAGE) ?: ""
-                val sender = intent.getStringExtra(DialogUtils.EXTRA_SMS_SENDER) ?: ""
-                
-                Log.d("DialogReceiver", "Showing dialog for message: $message from $sender")
-                
-                // Update dialog state
-                _showSmsDialog.value = true
-                _dialogSender.value = sender
-                _dialogMessage.value = message
-                
-                // Also show a Toast as a fallback
-                Toast.makeText(
-                    context,
-                    "GPS Locator: $message",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
+            val message = intent.getStringExtra("message") ?: ""
+            Log.d("MainActivity", "Binding message received: $message")
+            showBindingDialog.value = true
+            bindingMessage.value = message
         }
     }
-    
-    // State for dialog
-    private val _showSmsDialog = mutableStateOf(false)
-    private val _dialogSender = mutableStateOf("")
-    private val _dialogMessage = mutableStateOf("")
+
+    private val receivedMessage = mutableStateOf("")
+    private val showBindingDialog = mutableStateOf(false)
+    private val bindingMessage = mutableStateOf("")
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -142,19 +124,7 @@ class MainActivity : ComponentActivity() {
         )
 
         // Schedule the battery monitor worker to run every hour
-        val batteryMonitorRequest = PeriodicWorkRequestBuilder<BatteryMonitorWorker>(
-            1, TimeUnit.HOURS,
-            15, TimeUnit.MINUTES // Flex period
-        ).build()
-
-        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
-            "BatteryMonitorWorker",
-            ExistingPeriodicWorkPolicy.UPDATE,
-            batteryMonitorRequest
-        )
-
-        // Schedule the periodic SMS worker to run every hour
-        schedulePeriodicSmsWorker()
+        scheduleBatteryMonitorWorker()
 
         Log.d("MainActivity", "Scheduled GPS polling, timeout, and battery monitor workers")
 
@@ -189,34 +159,61 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.FOREGROUND_SERVICE
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissionsToRequest.add(Manifest.permission.FOREGROUND_SERVICE)
+            }
+        }
+
         if (permissionsToRequest.isNotEmpty()) {
             smsPermissionRequest.launch(permissionsToRequest.toTypedArray())
         }
 
-        val intentFilter = IntentFilter("com.example.sendsms.SMS_RECEIVED")
-        registerReceiver(smsReceiver, intentFilter)
+        // Register receivers with appropriate intent filters
+        registerReceiver(smsReceiver, IntentFilter("com.example.sendsms.SMS_RECEIVED"))
+        registerReceiver(bindingReceiver, IntentFilter(SmsReceiver.BINDING_ACTION))
 
-        // Register for dialog broadcasts
-        val dialogIntentFilter = IntentFilter(DialogUtils.ACTION_SHOW_SMS_DIALOG)
-        LocalBroadcastManager.getInstance(this).registerReceiver(dialogReceiver, dialogIntentFilter)
+        // Initialize notification channels
+        NotificationHelper(this).createNotificationChannels()
 
         setContent {
             SendSMSTheme {
-                val navController = rememberNavController()
-
-                val context = LocalContext.current
-                val sharedPreferences =
-                    context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
-                val isLoggedIn = sharedPreferences.getBoolean("isLoggedIn", false)
-
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(GrayToBlackGradient)
                 ) {
+                    val navController = rememberNavController()
+                    val context = LocalContext.current
+                    val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+                    
+                    // Check if user is logged in
+                    val isLoggedIn = sharedPreferences.getBoolean("isLoggedIn", false)
+                    val userId = sharedPreferences.getInt("userId", -1)
+                    val username = sharedPreferences.getString("username", null)
+                    
+                    // Determine start destination based on login status
+                    val startDestination = if (isLoggedIn && userId != -1 && username != null) {
+                        "profile"
+                    } else {
+                        // Clear any potentially corrupted login data
+                        sharedPreferences.edit()
+                            .remove("isLoggedIn")
+                            .remove("userId")
+                            .remove("username")
+                            .apply()
+                        "login"
+                    }
+                    
+                    Log.d("MainActivity", "Start destination: $startDestination (isLoggedIn=$isLoggedIn, userId=$userId)")
+                    
                     NavHost(
                         navController = navController,
-                        startDestination = "profile"
+                        startDestination = startDestination
                     ) {
                         composable("login") {
                             LoginScreen(
@@ -228,20 +225,26 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
-                        composable("register") {
+                        composable("registration") {
                             RegistrationScreen(
                                 navController = navController,
                                 onRegister = {
+                                    navController.navigate("login") {
+                                        popUpTo("registration") { inclusive = true }
+                                    }
                                 }
                             )
                         }
                         composable("profile") {
-                            ProfileScreen(
-                                navController = navController
-                            )
+                            ProfileScreen(navController = navController)
                         }
                         composable("actions") {
-                            ActionsScreen(navController = navController)
+                            ActionsScreen(
+                                navController = navController,
+                                showBindingDialog = showBindingDialog.value,
+                                bindingMessage = bindingMessage.value,
+                                onBindingDialogDismiss = { showBindingDialog.value = false }
+                            )
                         }
                         composable("map") {
                             GoogleMapsScreen(navController = navController)
@@ -257,26 +260,26 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
-
-                // Add the dialog
-                if (_showSmsDialog.value) {
-                    SmsResponseDialog(
-                        sender = _dialogSender.value,
-                        message = _dialogMessage.value,
-                        onDismiss = { _showSmsDialog.value = false }
-                    )
-                }
             }
         }
 
         // Call this in onCreate after requesting other permissions
         requestNotificationPermissionIfNeeded()
+
+        // Schedule workers with immediate execution
+        scheduleNotificationWorker()
+        scheduleBatteryMonitorWorker()
+        scheduleGpsTimeoutWorker()
+        schedulePeriodicSmsWorker()
+
+        // Start the background service
+        BackgroundService.startService(this)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(smsReceiver)
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(dialogReceiver)
+        unregisterReceiver(bindingReceiver)
     }
 
     // Add this function to check if notification permission is granted
@@ -321,5 +324,41 @@ class MainActivity : ComponentActivity() {
 
     private fun schedulePeriodicSmsWorker() {
         PeriodicSmsWorker.schedulePeriodicSms(this)
+    }
+
+    private fun scheduleNotificationWorker() {
+        val notificationWorkRequest = PeriodicWorkRequestBuilder<NotificationWorker>(
+            15, TimeUnit.MINUTES
+        ).build()
+        
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "notification_worker",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            notificationWorkRequest
+        )
+        
+        // Also run it once immediately
+        val oneTimeRequest = OneTimeWorkRequestBuilder<NotificationWorker>().build()
+        WorkManager.getInstance(this).enqueue(oneTimeRequest)
+        
+        Log.d("MainActivity", "Scheduled NotificationWorker to run every 15 minutes")
+    }
+
+    private fun scheduleBatteryMonitorWorker() {
+        val batteryWorkRequest = PeriodicWorkRequestBuilder<BatteryMonitorWorker>(
+            15, TimeUnit.MINUTES
+        ).build()
+        
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "battery_monitor",
+            ExistingPeriodicWorkPolicy.UPDATE,
+            batteryWorkRequest
+        )
+        
+        // Also run it once immediately
+        val oneTimeRequest = OneTimeWorkRequestBuilder<BatteryMonitorWorker>().build()
+        WorkManager.getInstance(this).enqueue(oneTimeRequest)
+        
+        Log.d("MainActivity", "Scheduled BatteryMonitorWorker to run every 15 minutes")
     }
 }

@@ -345,62 +345,48 @@ fun GoogleMapsScreen(navController: NavHostController, applicationViewModel: App
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                Button(
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4CAF50)
-                    ),
-                    onClick = {
-                    userLocation?.let { location ->
-                        val batteryPercentage = Random.nextInt(1, 101)
-
-                        if (userId != -1) {
-                            val gpsData = GPSData(
-                                userId = userId,
-                                latitude = location.latitude,
-                                longitude = location.longitude,
-                                battery = batteryPercentage,
-                                timestamp = System.currentTimeMillis()
-                            )
-
-                            applicationViewModel.insertGPSData(gpsData)
-                        }
-                    }
-                }) {
-                    Text("Save Location Data")
-                }
             }
 
-            Row(
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(16.dp)
-                    .fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                ToggleMarkersItem(
-                    isMarkersVisible = markersVisible,
-                    onClick = { markersVisible = !markersVisible },
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                )
-
-                RemoveBoundariesItem(
-                    onClick = {
-                        if (userId != -1) {
-                            applicationViewModel.removeBoundariesForUser(userId)
-                        }
-                    },
-                    modifier = Modifier.padding(start = 8.dp)
-                )
-
-                RemoveMarkerItem(
-                    onClick = {
-                        applicationViewModel.removeAllGPSDataForUser()
-                    },
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    // First row with two buttons
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        ToggleMarkersItem(
+                            isMarkersVisible = markersVisible,
+                            onClick = { markersVisible = !markersVisible }
+                        )
+                        
+                        RemoveBoundariesItem(
+                            onClick = {
+                                if (userId != -1) {
+                                    applicationViewModel.removeBoundariesForUser(userId)
+                                }
+                            }
+                        )
+                    }
+                    
+                    // Second row with one button centered
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        RemoveMarkerItem(
+                            onClick = {
+                                applicationViewModel.removeAllGPSDataForUser()
+                            }
+                        )
+                    }
+                }
             }
         }
     }

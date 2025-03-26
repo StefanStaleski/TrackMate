@@ -9,6 +9,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.sendsms.services.GpsTimeoutWorker
 import com.example.sendsms.services.NotificationHelper
+import com.example.sendsms.services.GpsTimeoutService
 import com.example.sendsms.utils.SMSScheduler
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -127,9 +128,15 @@ class GpsPollingManager private constructor(private val context: Context) {
      * @param phoneNumber The phone number to send the GPS polling SMS to
      */
     fun startPolling(phoneNumber: String) {
+        if (phoneNumber.isBlank()) {
+            Log.e(TAG, "Cannot start polling: phone number is blank")
+            return
+        }
+        
         if (isPolling.getAndSet(true)) {
             Log.d(TAG, "GPS polling already in progress, cancelling previous and starting new")
-            handler.removeCallbacks(timeoutRunnable)
+            // Cancel any existing polling
+            cancelPolling()
         }
         
         Log.d(TAG, "Starting GPS polling to $phoneNumber")
@@ -144,15 +151,8 @@ class GpsPollingManager private constructor(private val context: Context) {
             .putLong("lastGpsPollingAttempt", System.currentTimeMillis())
             .apply()
         
-        // Send the initial SMS
-        SMSScheduler.scheduleSMS(context, phoneNumber, "777", 0)
-        
-        // Schedule the timeout check
-        handler.removeCallbacks(timeoutRunnable) // Remove any existing callbacks first
-        handler.postDelayed(timeoutRunnable, TIMEOUT_DURATION_MS)
-        
-        // Also schedule a backup worker as a failsafe
-        scheduleTimeoutWorker()
+        // Start the timeout service which will handle sending the SMS and retries
+        GpsTimeoutService.startService(context, phoneNumber)
     }
     
     /**
@@ -161,7 +161,9 @@ class GpsPollingManager private constructor(private val context: Context) {
     fun cancelPolling() {
         if (isPolling.getAndSet(false)) {
             Log.d(TAG, "Cancelling GPS polling")
-            handler.removeCallbacks(timeoutRunnable)
+            
+            // Stop the timeout service
+            GpsTimeoutService.stopService(context)
             
             // Reset polling state in SharedPreferences
             sharedPreferences.edit()
@@ -176,6 +178,8 @@ class GpsPollingManager private constructor(private val context: Context) {
      * @param isSpecificallyInvalid Whether the response contained specifically -1,-1 coordinates
      */
     fun handleResponse(isValid: Boolean, isSpecificallyInvalid: Boolean = false) {
+        Log.d(TAG, "Handling GPS response: isValid=$isValid, isSpecificallyInvalid=$isSpecificallyInvalid")
+        
         // Cancel the timeout handler
         handler.removeCallbacks(timeoutRunnable)
         
@@ -224,7 +228,8 @@ class GpsPollingManager private constructor(private val context: Context) {
                 notificationHelper.sendNotification(
                     "GPS Locator Error",
                     "GPS Locator is sending invalid data after multiple attempts. Please check the device.",
-                    NotificationHelper.CHANNEL_GPS_ERROR
+                    NotificationHelper.CHANNEL_GPS_ERROR,
+                    "no_response"  // Add notification type
                 )
                 
                 // Update last notification time

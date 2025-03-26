@@ -50,8 +50,8 @@ class GpsTimeoutWorker(
                     "manualPollingInProgress=$manualPollingInProgress, " +
                     "lastResponseType=$lastResponseType")
             
-            // Check if we're in a polling state or if the last response was invalid
-            if (!pollingInProgress && !manualPollingInProgress && lastResponseType != "invalid") {
+            // Check if we're in a polling state
+            if (!pollingInProgress && !manualPollingInProgress) {
                 Log.d(TAG, "No polling in progress, exiting")
                 return@withContext Result.success()
             }
@@ -89,7 +89,8 @@ class GpsTimeoutWorker(
                     notificationHelper.sendNotification(
                         "GPS Locator Error",
                         "GPS Locator is not responding after multiple attempts. Please check the device.",
-                        NotificationHelper.CHANNEL_GPS_ERROR
+                        NotificationHelper.CHANNEL_GPS_ERROR,
+                        "no_response"  // Add notification type
                     )
                     
                     // Update last notification time

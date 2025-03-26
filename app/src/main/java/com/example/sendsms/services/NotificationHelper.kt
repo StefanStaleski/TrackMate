@@ -26,13 +26,23 @@ class NotificationHelper(private val context: Context) {
         private const val NOTIFICATION_ID_DEFAULT = 1
         private const val NOTIFICATION_ID_BATTERY = 2
         private const val NOTIFICATION_ID_GPS_ERROR = 3
+        private const val NOTIFICATION_ID_LOCATION = 4
+        
+        // Define notification types that should be shown
+        private val ALLOWED_NOTIFICATION_TYPES = listOf(
+            "battery_low",
+            "no_response",
+            "no_polygon",
+            "outside_polygon",
+            "close_to_exit"
+        )
     }
 
     init {
         createNotificationChannels()
     }
 
-    private fun createNotificationChannels() {
+    fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channels = listOf(
                 NotificationChannel(
@@ -81,16 +91,31 @@ class NotificationHelper(private val context: Context) {
         }
     }
 
-    fun sendNotification(title: String, message: String, channelId: String = CHANNEL_LOCATION) {
-        Log.d("NotificationHelper", "Attempting to send notification: $title - $message on channel $channelId")
-        
-        if (ActivityCompat.checkSelfPermission(
-                context,
-                android.Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            Log.e("NotificationHelper", "POST_NOTIFICATIONS permission not granted")
+    fun sendNotification(title: String, message: String, channelId: String = CHANNEL_LOCATION, notificationType: String = "") {
+        // Skip notifications that aren't explicitly allowed
+        if (notificationType.isNotEmpty() && !ALLOWED_NOTIFICATION_TYPES.contains(notificationType)) {
+            Log.d("NotificationHelper", "Skipping notification of type: $notificationType")
             return
+        }
+        
+        // Skip notifications that appear to be SMS content
+        if (message.startsWith("GPS:") || message.contains("VBT:") || 
+            (title.contains("GPS Locator") && !title.contains("Error") && !title.contains("Battery") && !title.contains("Alert"))) {
+            Log.d("NotificationHelper", "Skipping SMS content notification: $title - $message")
+            return
+        }
+        
+        Log.d("NotificationHelper", "Attempting to send notification: $title - $message on channel $channelId (type: $notificationType)")
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(
+                    context,
+                    android.Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.e("NotificationHelper", "POST_NOTIFICATIONS permission not granted")
+                return
+            }
         }
 
         try {
@@ -118,7 +143,7 @@ class NotificationHelper(private val context: Context) {
             val notificationId = when (channelId) {
                 CHANNEL_BATTERY -> NOTIFICATION_ID_BATTERY
                 CHANNEL_GPS_ERROR -> NOTIFICATION_ID_GPS_ERROR
-                CHANNEL_LOCATION -> 3
+                CHANNEL_LOCATION -> NOTIFICATION_ID_LOCATION
                 else -> NOTIFICATION_ID_DEFAULT
             }
 

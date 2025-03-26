@@ -49,7 +49,8 @@ class BatteryMonitorWorker(
                     notificationHelper.sendNotification(
                         "GPS Locator Battery Low",
                         "Your GPS locator's battery level is at $batteryPercentage%. Please charge your GPS locator device soon.",
-                        NotificationHelper.CHANNEL_BATTERY
+                        NotificationHelper.CHANNEL_BATTERY,
+                        "battery_low"  // Add notification type
                     )
                     
                     // Update last notification time

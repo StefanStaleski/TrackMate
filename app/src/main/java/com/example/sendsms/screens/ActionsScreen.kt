@@ -3,6 +3,7 @@ package com.example.sendsms.screens
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
@@ -21,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.example.sendsms.components.ActionItem
 import com.example.sendsms.components.BaseTemplate
+import com.example.sendsms.components.BindResponseDialog
 import com.example.sendsms.services.PeriodicSmsWorker
 import com.example.sendsms.utils.SMSScheduler
 import com.example.sendsms.utils.sendSMS
@@ -29,18 +31,26 @@ import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
+import kotlin.text.Regex
 
 @Composable
 fun ActionsScreen(
     navController: NavHostController,
     applicationViewModel: ApplicationViewModel = viewModel(
         factory = ApplicationViewModelFactory(LocalContext.current.applicationContext as Application)
-    )
+    ),
+    showBindingDialog: Boolean = false,
+    bindingMessage: String = "",
+    onBindingDialogDismiss: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
     val gpsLocatorNumber = sharedPreferences.getString("gpsLocatorNumber", "") ?: ""
-
+    
+    // State for bind dialog
+    var showBindDialog by remember { mutableStateOf(false) }
+    var bindResponseMessage by remember { mutableStateOf("") }
+    
     // Get periodic SMS settings
     var periodicSmsEnabled by remember { 
         mutableStateOf(sharedPreferences.getBoolean("periodicSmsEnabled", false)) 
@@ -67,10 +77,64 @@ fun ActionsScreen(
     } else {
         "Never"
     }
+    
+    // Listen for SMS responses that contain binding information
+    val receivedSms = sharedPreferences.getString("received_sms", "") ?: ""
+    
+    LaunchedEffect(receivedSms) {
+        if (receivedSms.isNotEmpty()) {
+            Log.d("ActionsScreen", "Received SMS: $receivedSms")
+            
+            if (receivedSms.contains("Set;Binding+")) {
+                Log.d("ActionsScreen", "Binding message detected in LaunchedEffect: $receivedSms")
+                
+                // Extract phone number if available
+                val bindingPart = receivedSms.substringAfter("Set;Binding+", "")
+                val phoneNumber = if (bindingPart.isNotEmpty()) {
+                    // Extract the phone number - it might be followed by other text
+                    val phoneNumberPattern = Regex("\\d+")
+                    val matchResult = phoneNumberPattern.find(bindingPart)
+                    matchResult?.value ?: gpsLocatorNumber
+                } else {
+                    gpsLocatorNumber
+                }
+                
+                bindResponseMessage = "Phone successfully bound to GPS Locator.\nBound number: $phoneNumber"
+                showBindDialog = true
+                
+                // Clear the received SMS to prevent showing the dialog again
+                sharedPreferences.edit().putString("received_sms", "").apply()
+            }
+        }
+    }
 
     // Load the latest GPS data when the screen opens
     LaunchedEffect(Unit) {
         applicationViewModel.getLatestGPSDataForUser()
+    }
+
+    // Update local state based on props
+    LaunchedEffect(showBindingDialog, bindingMessage) {
+        if (showBindingDialog) {
+            showBindDialog = true
+            
+            // Extract phone number if available
+            val phoneNumber = if (bindingMessage.contains("Set;Binding+")) {
+                val bindingPart = bindingMessage.substringAfter("Set;Binding+", "")
+                if (bindingPart.isNotEmpty()) {
+                    // Extract the phone number - it might be followed by other text
+                    val phoneNumberPattern = Regex("\\d+")
+                    val matchResult = phoneNumberPattern.find(bindingPart)
+                    matchResult?.value ?: gpsLocatorNumber
+                } else {
+                    gpsLocatorNumber
+                }
+            } else {
+                gpsLocatorNumber
+            }
+            
+            bindResponseMessage = "Phone successfully bound to GPS Locator.\nBound number: $phoneNumber"
+        }
     }
 
     BaseTemplate(navController = navController) {
@@ -83,7 +147,7 @@ fun ActionsScreen(
         ) {
             val iconColor = Color(0xFF4CAF50)
 
-            // Layout for two rows with two buttons each
+            // Layout for rows with action buttons
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -110,7 +174,7 @@ fun ActionsScreen(
                         icon = Icons.Filled.Phone,
                         text = "Call",
                         onClick = {
-                            sendSMS(gpsLocatorNumber, "CALL!")
+                            sendSMS(gpsLocatorNumber, "666")
                         },
                         iconColor = iconColor,
                         modifier = Modifier.weight(1f).padding(8.dp)
@@ -122,23 +186,40 @@ fun ActionsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     ActionItem(
-                        icon = Icons.Filled.Mic,
-                        text = "Listen",
+                        icon = Icons.Filled.Replay,
+                        text = "Restart",
                         onClick = {
-                            sendSMS(gpsLocatorNumber, "MONITOR!")
+                            sendSMS(gpsLocatorNumber, "999")
                         },
                         iconColor = iconColor,
                         modifier = Modifier.weight(1f).padding(8.dp)
                     )
 
                     ActionItem(
-                        icon = Icons.Filled.BatteryAlert,
-                        text = "Battery",
+                        icon = Icons.Filled.Delete,
+                        text = "Delete Memory",
                         onClick = {
-                            sendSMS(gpsLocatorNumber, "BAT!")
+                            sendSMS(gpsLocatorNumber, "445")
                         },
                         iconColor = iconColor,
                         modifier = Modifier.weight(1f).padding(8.dp)
+                    )
+                }
+                
+                // New row for Bind action
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    ActionItem(
+                        icon = Icons.Filled.Link,
+                        text = "Bind",
+                        onClick = {
+                            Log.d("ActionsScreen", "Sending bind command (000) to $gpsLocatorNumber")
+                            sendSMS(gpsLocatorNumber, "000")
+                        },
+                        iconColor = iconColor,
+                        modifier = Modifier.padding(8.dp)
                     )
                 }
             }
@@ -157,7 +238,7 @@ fun ActionsScreen(
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = "Automatic SMS Settings",
+                        text = "Automatic Tracking",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
                         color = Color.White,
@@ -172,7 +253,7 @@ fun ActionsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Send SMS Automatically",
+                            text = "Track Automatically",
                             color = Color.White
                         )
                         Switch(
@@ -181,6 +262,10 @@ fun ActionsScreen(
                                 periodicSmsEnabled = isEnabled
                                 sharedPreferences.edit()
                                     .putBoolean("periodicSmsEnabled", isEnabled)
+                                    .apply()
+                                // Always use "777" as the message
+                                sharedPreferences.edit()
+                                    .putString("periodicSmsMessage", "777")
                                     .apply()
                                 broadcastSettingsChanged(context)
                             },
@@ -199,7 +284,7 @@ fun ActionsScreen(
                                 .padding(bottom = 16.dp)
                         ) {
                             Text(
-                                text = "Frequency: ${formatFrequency(smsFrequencyMinutes)}",
+                                text = "Tracking Interval: ${formatFrequency(smsFrequencyMinutes)}",
                                 color = Color.White,
                                 modifier = Modifier.padding(bottom = 8.dp)
                             )
@@ -236,35 +321,24 @@ fun ActionsScreen(
                         }
                     }
                     
-                    OutlinedTextField(
-                        value = periodicSmsMessage,
-                        onValueChange = { message ->
-                            periodicSmsMessage = message
-                            sharedPreferences.edit()
-                                .putString("periodicSmsMessage", message)
-                                .apply()
-                        },
-                        label = { Text("SMS Message") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        colors = TextFieldDefaults.outlinedTextFieldColors(
-                            focusedBorderColor = Color(0xFF4CAF50),
-                            unfocusedBorderColor = Color.Gray,
-                            focusedLabelColor = Color(0xFF4CAF50),
-                            unfocusedLabelColor = Color.Gray,
-                            cursorColor = Color(0xFF4CAF50),
-                            textColor = Color.White
-                        )
-                    )
-                    
                     Text(
-                        text = "Last sent: $formattedLastSent",
+                        text = "Last tracked: $formattedLastSent",
                         color = Color.LightGray,
                         fontSize = 14.sp
                     )
                 }
             }
+        }
+        
+        // Show bind response dialog if needed
+        if (showBindDialog) {
+            BindResponseDialog(
+                message = bindResponseMessage,
+                onDismiss = { 
+                    showBindDialog = false
+                    onBindingDialogDismiss()
+                }
+            )
         }
     }
 }

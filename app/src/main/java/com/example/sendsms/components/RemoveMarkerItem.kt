@@ -41,7 +41,7 @@ fun RemoveMarkerItem(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Remove M",
+            text = "Remove Markers",
             style = MaterialTheme.typography.body1.copy(color = iconColor, fontSize = 12.sp)
         )
     }

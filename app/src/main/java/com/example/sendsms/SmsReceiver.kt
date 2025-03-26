@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import android.util.Log
+import android.widget.Toast
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.sendsms.database.AppDatabase
@@ -12,39 +13,66 @@ import com.example.sendsms.database.entity.GPSData
 import com.example.sendsms.database.repository.GPSDataRepository
 import com.example.sendsms.services.BatteryMonitorWorker
 import com.example.sendsms.services.NotificationHelper
-import com.example.sendsms.utils.DialogUtils
 import com.example.sendsms.utils.SmsParser
 import com.example.sendsms.utils.GpsPollingManager
 import com.example.sendsms.utils.SMSScheduler
+import com.example.sendsms.services.BackgroundService
+import com.example.sendsms.services.GpsTimeoutService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class SmsReceiver : BroadcastReceiver() {
     
+    companion object {
+        const val BINDING_ACTION = "com.example.sendsms.BINDING_RECEIVED"
+    }
+    
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
-            val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
+        // Set high priority for this receiver
+        val pendingResult = goAsync()
+        
+        try {
+            // Start the background service if it's not running
+            BackgroundService.startService(context)
             
-            for (message in messages) {
-                val sender = message.originatingAddress ?: "Unknown"
-                val messageBody = message.messageBody
+            if (intent.action == Telephony.Sms.Intents.SMS_RECEIVED_ACTION) {
+                val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent)
                 
-                Log.d("SmsReceiver", "SMS received from: $sender, message: $messageBody")
-                
-                // Broadcast the message to the app
-                val broadcastIntent = Intent("com.example.sendsms.SMS_RECEIVED")
-                broadcastIntent.putExtra("message", messageBody)
-                context.sendBroadcast(broadcastIntent)
-                
-                // Show dialog with the message
-                DialogUtils.showSmsResponseDialog(context, sender, messageBody)
-                
-                // Process the message if it looks like a GPS locator message
-                if (messageBody.contains("VBT:") && messageBody.contains("www.google.com/maps")) {
-                    processGpsLocatorMessage(context, sender, messageBody)
+                for (message in messages) {
+                    val sender = message.originatingAddress ?: "Unknown"
+                    val messageBody = message.messageBody
+                    
+                    Log.d("SmsReceiver", "SMS received from: $sender, message: $messageBody")
+                    
+                    // Store the received message in SharedPreferences for the app to access
+                    val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+                    sharedPreferences.edit().putString("received_sms", messageBody).apply()
+                    
+                    // Check for binding message first - look for the substring anywhere in the message
+                    if (messageBody.contains("Set;Binding+")) {
+                        Log.d("SmsReceiver", "Binding message detected: $messageBody")
+                        
+                        // Send a specific broadcast for binding messages
+                        val bindingIntent = Intent(BINDING_ACTION)
+                        bindingIntent.putExtra("message", messageBody)
+                        context.sendBroadcast(bindingIntent)
+                    }
+                    
+                    // Always broadcast the message to the app (for other functionality)
+                    val broadcastIntent = Intent("com.example.sendsms.SMS_RECEIVED")
+                    broadcastIntent.putExtra("message", messageBody)
+                    context.sendBroadcast(broadcastIntent)
+                    
+                    // Process the message if it looks like a GPS locator message
+                    if (messageBody.contains("VBT:") && messageBody.contains("www.google.com/maps")) {
+                        processGpsLocatorMessage(context, sender, messageBody)
+                    }
                 }
             }
+        } finally {
+            // Must call finish() so the BroadcastReceiver can be recycled
+            pendingResult.finish()
         }
     }
     
@@ -60,7 +88,18 @@ class SmsReceiver : BroadcastReceiver() {
         
         Log.d("SmsReceiver", "Processed message: isValid=${parsedData.isValid}, isSpecificallyInvalid=${parsedData.isSpecificallyInvalid}")
         
-        // Check for specifically invalid coordinates (-1,-1)
+        // Update last response time and type
+        sharedPreferences.edit()
+            .putLong("lastGpsResponseTime", System.currentTimeMillis())
+            .putString("lastGpsResponseType", if (parsedData.isValid) "valid" else "invalid")
+            .apply()
+        
+        // If we got a valid response, stop the timeout service
+        if (parsedData.isValid) {
+            GpsTimeoutService.stopService(context)
+        }
+        
+        // If we got specifically invalid data (-1,-1), handle it
         if (parsedData.isSpecificallyInvalid) {
             // Track consecutive invalid responses
             val consecutiveInvalidCount = sharedPreferences.getInt("consecutiveInvalidCount", 0) + 1
@@ -77,7 +116,8 @@ class SmsReceiver : BroadcastReceiver() {
                 notificationHelper.sendNotification(
                     "GPS Locator Error",
                     "GPS Locator is sending invalid data (-1,-1) after multiple attempts. Please check the device.",
-                    NotificationHelper.CHANNEL_GPS_ERROR
+                    NotificationHelper.CHANNEL_GPS_ERROR,
+                    "no_response"
                 )
                 
                 // Reset counter after notification
@@ -136,6 +176,15 @@ class SmsReceiver : BroadcastReceiver() {
                     val batteryCheckRequest = OneTimeWorkRequestBuilder<BatteryMonitorWorker>()
                         .build()
                     WorkManager.getInstance(context).enqueue(batteryCheckRequest)
+                    
+                    // Also directly send a notification for immediate feedback
+                    val notificationHelper = NotificationHelper(context)
+                    notificationHelper.sendNotification(
+                        "GPS Locator Battery Low",
+                        "Your GPS locator's battery level is at $battery%. Please charge your GPS locator device soon.",
+                        NotificationHelper.CHANNEL_BATTERY,
+                        "battery_low"
+                    )
                 }
             }
             
@@ -159,6 +208,22 @@ class SmsReceiver : BroadcastReceiver() {
             }
         } else {
             Log.e("SmsReceiver", "Cannot save GPS data: No user ID found in SharedPreferences")
+        }
+    }
+    
+    private fun checkAndRestartTimeoutServiceIfNeeded(context: Context) {
+        val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+        val isPolling = sharedPreferences.getBoolean("gpsPollingInProgress", false)
+        val lastAttemptTime = sharedPreferences.getLong("lastGpsPollingAttempt", 0)
+        val currentTime = System.currentTimeMillis()
+        
+        // If polling is in progress and it's been less than 5 minutes since the last attempt
+        if (isPolling && (currentTime - lastAttemptTime < 5 * 60 * 1000)) {
+            val gpsLocatorNumber = sharedPreferences.getString("gpsLocatorNumber", "") ?: ""
+            if (gpsLocatorNumber.isNotBlank()) {
+                Log.d("SmsReceiver", "Restarting GPS timeout service")
+                GpsTimeoutService.startService(context, gpsLocatorNumber)
+            }
         }
     }
 }

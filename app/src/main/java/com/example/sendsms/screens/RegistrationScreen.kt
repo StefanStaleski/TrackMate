@@ -1,6 +1,7 @@
 package com.example.sendsms.screens
 
 import android.app.Application
+import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -36,6 +37,7 @@ fun RegistrationScreen(
 
     val registrationStatus by applicationViewModel.registrationStatus.collectAsState()
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     fun validateInput(): Boolean {
         return when {
@@ -74,9 +76,8 @@ fun RegistrationScreen(
                 duration = SnackbarDuration.Short,
             ).also {
                 if (message == "Registration successful") {
-                    onRegister()
                     navController.navigate("login") {
-                        popUpTo("register") { inclusive = true }
+                        popUpTo("registration") { inclusive = true }
                     }
                 }
                 applicationViewModel.resetRegistrationStatus()

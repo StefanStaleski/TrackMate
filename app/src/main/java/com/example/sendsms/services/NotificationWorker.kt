@@ -60,71 +60,73 @@ class NotificationWorker(
                     notificationHelper.sendNotification(
                         "Locator Alert", 
                         "You have no polygons set up",
-                        NotificationHelper.CHANNEL_LOCATION
+                        NotificationHelper.CHANNEL_LOCATION,
+                        "no_polygon"  // Add notification type
                     )
-                } else {
-                    var isInsideAnyPolygon = false
-                    var isCloseToExit = false
+                    return@runBlocking Result.success()
+                }
+                
+                var isInsideAnyPolygon = false
+                var isCloseToExit = false
+                
+                for (boundary in boundaries) {
+                    val polygon = listOf(
+                        LatLng(boundary.point1Lat, boundary.point1Long),
+                        LatLng(boundary.point2Lat, boundary.point2Long),
+                        LatLng(boundary.point3Lat, boundary.point3Long),
+                        LatLng(boundary.point4Lat, boundary.point4Long)
+                    )
                     
-                    for (boundary in boundaries) {
-                        val polygon = listOf(
-                            LatLng(boundary.point1Lat, boundary.point1Long),
-                            LatLng(boundary.point2Lat, boundary.point2Long),
-                            LatLng(boundary.point3Lat, boundary.point3Long),
-                            LatLng(boundary.point4Lat, boundary.point4Long)
-                        )
+                    if (isPointInPolygon(userLatLng, polygon)) {
+                        isInsideAnyPolygon = true
                         
-                        if (isPointInPolygon(userLatLng, polygon)) {
-                            isInsideAnyPolygon = true
-                            
-                            // Check if close to boundary
-                            val distancePercentage = calculateDistanceToPolygonBoundaryPercentage(userLatLng, polygon)
-                            Log.d(TAG, "Distance percentage to boundary: $distancePercentage")
-                            
-                            if (distancePercentage <= BOUNDARY_PROXIMITY_THRESHOLD) {
-                                isCloseToExit = true
-                                Log.d(TAG, "User is close to exit: distance percentage = $distancePercentage, threshold = $BOUNDARY_PROXIMITY_THRESHOLD")
-                                break
-                            }
-                        }
-                    }
-
-                    val currentTime = System.currentTimeMillis()
-                    
-                    if (!isInsideAnyPolygon) {
-                        // Outside polygon notification
-                        Log.d(TAG, "Locator is outside the polygon zone, sending notification")
-                        notificationHelper.sendNotification(
-                            "Locator Alert", 
-                            "Locator is outside the polygon zone",
-                            NotificationHelper.CHANNEL_LOCATION
-                        )
-                    } else if (isCloseToExit) {
-                        // Check cooldown for proximity notifications
-                        val lastNotificationTime = sharedPreferences.getLong(PROXIMITY_NOTIFICATION_KEY, 0)
+                        // Check if close to boundary
+                        val distancePercentage = calculateDistanceToPolygonBoundaryPercentage(userLatLng, polygon)
+                        Log.d(TAG, "Distance percentage to boundary: $distancePercentage")
                         
-                        if (currentTime - lastNotificationTime > PROXIMITY_NOTIFICATION_COOLDOWN) {
-                            // Close to exit notification
-                            Log.d(TAG, "Locator is close to the exit zone, sending notification")
-                            notificationHelper.sendNotification(
-                                "Proximity Alert", 
-                                "GPS Locator is close to the exit zone of the perimeter",
-                                NotificationHelper.CHANNEL_LOCATION
-                            )
-                            
-                            // Update last notification time
-                            sharedPreferences.edit()
-                                .putLong(PROXIMITY_NOTIFICATION_KEY, currentTime)
-                                .apply()
-                        } else {
-                            Log.d(TAG, "Skipping proximity notification due to cooldown. Time since last notification: ${(currentTime - lastNotificationTime) / 1000} seconds")
+                        if (distancePercentage <= BOUNDARY_PROXIMITY_THRESHOLD) {
+                            isCloseToExit = true
+                            Log.d(TAG, "User is close to exit: distance percentage = $distancePercentage, threshold = $BOUNDARY_PROXIMITY_THRESHOLD")
+                            break
                         }
-                    } else {
-                        Log.d(TAG, "Locator is inside the polygon zone and not close to exit")
                     }
                 }
 
-                testProximityDetection()
+                val currentTime = System.currentTimeMillis()
+                
+                if (!isInsideAnyPolygon) {
+                    // Outside polygon notification
+                    Log.d(TAG, "Locator is outside the polygon zone, sending notification")
+                    notificationHelper.sendNotification(
+                        "Locator Alert", 
+                        "Locator is outside the polygon zone",
+                        NotificationHelper.CHANNEL_LOCATION,
+                        "outside_polygon"  // Add notification type
+                    )
+                } else if (isCloseToExit) {
+                    // Check cooldown for proximity notifications
+                    val lastNotificationTime = sharedPreferences.getLong(PROXIMITY_NOTIFICATION_KEY, 0)
+                    
+                    if (currentTime - lastNotificationTime > PROXIMITY_NOTIFICATION_COOLDOWN) {
+                        // Close to exit notification
+                        Log.d(TAG, "Locator is close to the exit zone, sending notification")
+                        notificationHelper.sendNotification(
+                            "Proximity Alert", 
+                            "GPS Locator is close to the exit zone of the perimeter",
+                            NotificationHelper.CHANNEL_LOCATION,
+                            "close_to_exit"  // Add notification type
+                        )
+                        
+                        // Update last notification time
+                        sharedPreferences.edit()
+                            .putLong(PROXIMITY_NOTIFICATION_KEY, currentTime)
+                            .apply()
+                    } else {
+                        Log.d(TAG, "Skipping proximity notification due to cooldown. Time since last notification: ${(currentTime - lastNotificationTime) / 1000} seconds")
+                    }
+                } else {
+                    Log.d(TAG, "Locator is inside the polygon zone and not close to exit")
+                }
 
                 Result.success()
             }

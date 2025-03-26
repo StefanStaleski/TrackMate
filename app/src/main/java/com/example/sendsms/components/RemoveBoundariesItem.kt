@@ -40,7 +40,7 @@ fun RemoveBoundariesItem(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Remove B",
+            text = "Remove Boundaries",
             style = MaterialTheme.typography.body1.copy(color = iconColor, fontSize = 12.sp)
         )
     }

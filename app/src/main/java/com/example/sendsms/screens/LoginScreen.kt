@@ -17,6 +17,7 @@ import com.example.sendsms.components.AppTextField
 import com.example.sendsms.viewmodel.ApplicationViewModel
 import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import kotlinx.coroutines.launch
+import android.content.Context
 
 @Composable
 fun LoginScreen(
@@ -31,6 +32,7 @@ fun LoginScreen(
     val loginStatus by applicationViewModel.loginStatus.collectAsState()
     var errorMessage by remember { mutableStateOf("") }
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val focusManager = LocalFocusManager.current
 
@@ -65,6 +67,11 @@ fun LoginScreen(
 
             applicationViewModel.resetLoginStatus()
         } else if (loginStatus == "Login successful") {
+            // Save login status to SharedPreferences
+            val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+            sharedPreferences.edit().putBoolean("isLoggedIn", true).apply()
+            
+            // Navigate to profile screen
             onLogin()
             navController.navigate("profile") {
                 popUpTo("login") { inclusive = true }
@@ -118,7 +125,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(32.dp))
         TextButton(
             onClick = {
-                navController.navigate("register")
+                navController.navigate("registration")
             },
             colors = ButtonDefaults.textButtonColors(
                 contentColor = Color(0xFFFF6F61),

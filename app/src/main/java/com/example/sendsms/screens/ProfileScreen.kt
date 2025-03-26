@@ -27,6 +27,7 @@ import com.example.sendsms.viewmodel.ApplicationViewModelFactory
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.sendsms.components.FirstTimeInfoDialog
 
 @Composable
 fun ProfileScreen(
@@ -37,6 +38,10 @@ fun ProfileScreen(
 
     val context = LocalContext.current
     val sharedPreferences = context.getSharedPreferences("UserPreferences", Context.MODE_PRIVATE)
+
+    var isFirstTimeLogin by remember { 
+        mutableStateOf(sharedPreferences.getBoolean("isFirstTimeLogin", true)) 
+    }
 
     val userName by remember {
         mutableStateOf(
@@ -223,6 +228,28 @@ fun ProfileScreen(
                     .fillMaxWidth()
                     .padding(bottom = 16.dp)
             )
+            AppButton(
+                text = "Logout",
+                onClick = { 
+                    // Clear ALL login-related data
+                    with(sharedPreferences.edit()) {
+                        putBoolean("isLoggedIn", false)
+                        remove("userId")
+                        remove("username")
+                        remove("gpsLocatorNumber")
+                        // You might want to keep some settings like notification preferences
+                        apply()
+                    }
+                    // Navigate back to login screen
+                    navController.navigate("login") {
+                        popUpTo("profile") { inclusive = true }
+                    }
+                },
+                contentColor = Color.White,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            )
         }
 
         EditProfileDialog(
@@ -234,6 +261,18 @@ fun ProfileScreen(
             currentUserName = userName,
             currentGpsLocator = gpsLocatorNumber
         )
+
+        if (isFirstTimeLogin) {
+            FirstTimeInfoDialog(
+                onDismiss = {
+                    // Mark first time login as completed
+                    sharedPreferences.edit()
+                        .putBoolean("isFirstTimeLogin", false)
+                        .apply()
+                    isFirstTimeLogin = false
+                }
+            )
+        }
     }
 }
 
